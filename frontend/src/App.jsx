@@ -3,6 +3,7 @@ import { api } from './api';
 import ProjectsPage from './pages/ProjectsPage';
 import RowsPage from './pages/RowsPage';
 import ImportExcelPage from './pages/ImportExcelPage';
+import DashboardPage from './pages/DashboardPage';
 
 function useDebouncedValue(value, delay = 300) {
   const [debounced, setDebounced] = useState(value);
@@ -16,7 +17,11 @@ function useDebouncedValue(value, delay = 300) {
 }
 
 function parseHash() {
-  const hash = window.location.hash || '#/projects';
+  const hash = window.location.hash || '#/dashboard';
+
+  if (hash === '#/dashboard') {
+    return { page: 'dashboard', projectId: null };
+  }
 
   if (hash === '#/projects') {
     return { page: 'projects', projectId: null };
@@ -32,7 +37,7 @@ function parseHash() {
     return { page: 'import', projectId: Number(importMatch[1]) };
   }
 
-  return { page: 'projects', projectId: null };
+  return { page: 'dashboard', projectId: null };
 }
 
 function EMPTY_FORM() {
@@ -84,7 +89,7 @@ export default function App() {
 
   useEffect(() => {
     if (!window.location.hash) {
-      window.location.hash = '/projects';
+      window.location.hash = '/dashboard';
     }
   }, []);
 
@@ -133,6 +138,10 @@ export default function App() {
     setRowsData((prev) => ({ ...prev, page: 1 }));
     loadRows(route.projectId, 1);
   }, [route.page, route.projectId, debouncedSearch, status, refreshKey]);
+
+  function goToDashboard() {
+    window.location.hash = '/dashboard';
+  }
 
   function goToProjects() {
     window.location.hash = '/projects';
@@ -333,17 +342,29 @@ export default function App() {
     );
   }
 
+  if (route.page === 'projects') {
+    return (
+      <ProjectsPage
+        projects={projects}
+        loadingProjects={loadingProjects}
+        error={error}
+        projectName={projectName}
+        setProjectName={setProjectName}
+        projectDescription={projectDescription}
+        setProjectDescription={setProjectDescription}
+        createProject={createProject}
+        openProject={goToProjectRows}
+      />
+    );
+  }
+
   return (
-    <ProjectsPage
+    <DashboardPage
       projects={projects}
       loadingProjects={loadingProjects}
       error={error}
-      projectName={projectName}
-      setProjectName={setProjectName}
-      projectDescription={projectDescription}
-      setProjectDescription={setProjectDescription}
-      createProject={createProject}
-      openProject={goToProjectRows}
+      openProjectsPage={goToProjects}
+      openProjectRows={goToProjectRows}
     />
   );
 }

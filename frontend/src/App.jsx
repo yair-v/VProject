@@ -265,9 +265,50 @@ export default function App() {
                 placeholder="חפש או הוסף לקוח"
               />
               <label className="field"><span>שם סניף</span><input value={form.branch_name} onChange={(e) => updateForm('branch_name', e.target.value)} /></label>
-              <label className="field"><span>מספר סניף</span><input value={form.branch_number} onChange={(e) => updateForm('branch_number', e.target.value)} /></label>
-              <label className="field"><span>מספר עמדה</span><input value={form.position_number} onChange={(e) => updateForm('position_number', e.target.value)} /></label>
-              <label className="field"><span>מספר סידורי *</span><input value={form.serial_number} onChange={(e) => updateForm('serial_number', e.target.value)} required /></label>
+              <label className="field"><span>מספר סניף</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                  value={form.branch_number || ''}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      branch_number: e.target.value.replace(/\D/g, '').slice(0, 5)
+                    }))
+                  }
+                />
+              </label>
+              <label className="field"><span>מספר עמדה</span><input
+                type="text"
+                inputMode="numeric"
+                maxLength={5}
+                value={form.position_number || ''}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    position_number: e.target.value.replace(/\D/g, '').slice(0, 5)
+                  }))
+                }
+              /></label>
+              <label className="field"><span>מספר סידורי *
+
+              </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={form.serial_number || ''}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      serial_number: e.target.value.replace(/\D/g, '').slice(0, 8)
+                    }))
+                  }
+                />
+              </label>
+
+
               <LookupInput
                 label="שם מתקין"
                 required={form.status === 'completed'}

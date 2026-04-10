@@ -199,9 +199,19 @@ function validateAndNormalizeRow(payload) {
     status: normalizeStatus(payload.status)
   };
 
-  if (!String(data.serialNumber).trim()) {
+  const serial = String(data.serialNumber).trim();
+
+  // חובה
+  if (!serial) {
     throw new Error('מספר סידורי הוא שדה חובה');
   }
+
+  // חייב להיות בדיוק 8 ספרות
+  if (!/^\d{8}$/.test(serial)) {
+    throw new Error('מספר סידורי חייב להיות 8 ספרות בדיוק');
+  }
+
+  data.serialNumber = serial;
 
   if (data.status === 'completed') {
     if (!String(data.installerName).trim()) {

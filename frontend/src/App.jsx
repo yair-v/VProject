@@ -123,9 +123,9 @@ export default function App() {
 
   useEffect(() => {
     if (!window.location.hash) {
-      window.location.hash = user ? '/dashboard' : '/login';
+      window.location.hash = '/login';
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('displaySettings', JSON.stringify(displaySettings));

@@ -113,7 +113,7 @@ export default function RowsPage({
         <section className="hero-with-brand">
           <section className="toolbar card glass-card hero-toolbar">
             <div>
-              <div className="section-chip">Rows Management</div>
+              <div className="section-chip">דף ניהול הפרוייקט</div>
               <h2>{selectedProject?.name || 'בחר פרויקט'}</h2>
               <p>
                 {selectedProject?.description || 'ניהול שורות, טפסים, חיפוש ופעולות מהירות.'}
@@ -126,7 +126,7 @@ export default function RowsPage({
                 className="secondary-btn"
                 onClick={goToImport}
               >
-                ייבוא Pro
+                ייבוא נתונים מאקסל
               </button>
 
               <button
@@ -134,7 +134,7 @@ export default function RowsPage({
                 className="secondary-btn"
                 onClick={handleExport}
               >
-                ייצוא אקסל
+                ייצוא נתונים לאקסל
               </button>
             </div>
           </section>

@@ -6,6 +6,7 @@ import RowsPage from './pages/RowsPage';
 import ImportExcelPage from './pages/ImportExcelPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
+import FloatingMenu from './components/FloatingMenu';
 
 function useDebouncedValue(value, delay = 300) {
   const [debounced, setDebounced] = useState(value);
@@ -19,7 +20,11 @@ function useDebouncedValue(value, delay = 300) {
 }
 
 function parseHash() {
-  const hash = window.location.hash || '#/dashboard';
+  const hash = window.location.hash || '#/login';
+
+  if (hash === '#/login') {
+    return { page: 'login', projectId: null };
+  }
 
   if (hash === '#/dashboard') {
     return { page: 'dashboard', projectId: null };
@@ -43,7 +48,7 @@ function parseHash() {
     return { page: 'import', projectId: Number(importMatch[1]) };
   }
 
-  return { page: 'dashboard', projectId: null };
+  return { page: 'login', projectId: null };
 }
 
 function emptyForm() {
@@ -118,20 +123,33 @@ export default function App() {
 
   useEffect(() => {
     if (!window.location.hash) {
-      window.location.hash = '/dashboard';
+      window.location.hash = user ? '/dashboard' : '/login';
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     localStorage.setItem('displaySettings', JSON.stringify(displaySettings));
-
     document.documentElement.setAttribute('data-theme', displaySettings.theme);
     document.documentElement.style.zoom = `${displaySettings.zoom}%`;
   }, [displaySettings]);
 
-  async function loadProjects() {
-    setLoadingProjects(true);
+  useEffect(() => {
+    if (!user) {
+      if (route.page !== 'login') {
+        window.location.hash = '/login';
+      }
+      return;
+    }
 
+    if (route.page === 'login') {
+      window.location.hash = '/dashboard';
+    }
+  }, [user, route.page]);
+
+  async function loadProjects() {
+    if (!user) return;
+
+    setLoadingProjects(true);
     try {
       const data = await api.getProjects();
       setProjects(data);
@@ -144,10 +162,9 @@ export default function App() {
   }
 
   async function loadRows(projectId = route.projectId, page = rowsData.page) {
-    if (!projectId) return;
+    if (!projectId || !user) return;
 
     setLoadingRows(true);
-
     try {
       const data = await api.getRows({
         projectId,
@@ -172,12 +189,17 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
+    if (!user) return;
     if (route.page !== 'rows') return;
     if (!route.projectId) return;
 
     setRowsData((prev) => ({ ...prev, page: 1 }));
     loadRows(route.projectId, 1);
-  }, [route.page, route.projectId, debouncedSearch, status, refreshKey]);
+  }, [route.page, route.projectId, debouncedSearch, status, refreshKey, user]);
+
+  function goToLogin() {
+    window.location.hash = '/login';
+  }
 
   function goToDashboard() {
     window.location.hash = '/dashboard';
@@ -198,6 +220,35 @@ export default function App() {
     window.location.hash = backHash;
   }
 
+  function goBackGeneric() {
+    if (route.page === 'settings') {
+      goBackFromSettings();
+      return;
+    }
+
+    if (route.page === 'import' && route.projectId) {
+      window.location.hash = `/project/${route.projectId}/rows`;
+      return;
+    }
+
+    if (route.page === 'rows') {
+      window.location.hash = '/projects';
+      return;
+    }
+
+    if (route.page === 'projects') {
+      window.location.hash = '/dashboard';
+      return;
+    }
+
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    window.location.hash = '/dashboard';
+  }
+
   function goToProjectRows(projectId) {
     window.location.hash = `/project/${projectId}/rows`;
   }
@@ -209,7 +260,14 @@ export default function App() {
   function logout() {
     localStorage.removeItem('user');
     setUser(null);
-    window.location.hash = '/dashboard';
+    setProjects([]);
+    setRowsData({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 100
+    });
+    goToLogin();
   }
 
   function updateForm(field, value) {
@@ -360,99 +418,125 @@ export default function App() {
 
   function handleLogin(nextUser) {
     setUser(nextUser);
-    goToDashboard();
+    window.location.hash = '/dashboard';
   }
 
   if (!user) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
+  const floatingMenu = (
+    <FloatingMenu
+      user={user}
+      onDashboard={goToDashboard}
+      onProjects={goToProjects}
+      onSettings={goToSettings}
+      onBack={goBackGeneric}
+      onLogout={logout}
+    />
+  );
+
   if (route.page === 'settings') {
     return (
-      <SettingsPage
-        user={user}
-        onBack={goBackFromSettings}
-        onLogout={logout}
-        displaySettings={displaySettings}
-        setDisplaySettings={setDisplaySettings}
-      />
+      <>
+        <SettingsPage
+          user={user}
+          onBack={goBackFromSettings}
+          onLogout={logout}
+          displaySettings={displaySettings}
+          setDisplaySettings={setDisplaySettings}
+        />
+        {floatingMenu}
+      </>
     );
   }
 
   if (route.page === 'import' && route.projectId) {
     return (
-      <ImportExcelPage
-        projectId={route.projectId}
-        projectName={selectedProject?.name || ''}
-        onBack={() => goToProjectRows(route.projectId)}
-      />
+      <>
+        <ImportExcelPage
+          projectId={route.projectId}
+          projectName={selectedProject?.name || ''}
+          onBack={() => goToProjectRows(route.projectId)}
+        />
+        {floatingMenu}
+      </>
     );
   }
 
   if (route.page === 'rows' && route.projectId) {
     return (
-      <RowsPage
-        projects={projects}
-        selectedProject={selectedProject}
-        rowsData={rowsData}
-        loadingRows={loadingRows}
-        loadingProjects={loadingProjects}
-        error={error}
-        search={search}
-        setSearch={setSearch}
-        status={status}
-        setStatus={setStatus}
-        form={form}
-        setForm={setForm}
-        editingRowId={editingRowId}
-        updateForm={updateForm}
-        resetForm={resetForm}
-        saveRow={saveRow}
-        startEdit={startEdit}
-        deleteRow={removeRow}
-        loadRows={loadRows}
-        handleExport={handleExport}
-        goToProjects={goToProjects}
-        goToImport={() => goToProjectImport(route.projectId)}
-        setSelectedProject={(projectId) => {
-          resetForm();
-          goToProjectRows(projectId);
-        }}
-        refreshKey={refreshKey}
-        openSettings={goToSettings}
-        user={user}
-      />
+      <>
+        <RowsPage
+          projects={projects}
+          selectedProject={selectedProject}
+          rowsData={rowsData}
+          loadingRows={loadingRows}
+          loadingProjects={loadingProjects}
+          error={error}
+          search={search}
+          setSearch={setSearch}
+          status={status}
+          setStatus={setStatus}
+          form={form}
+          setForm={setForm}
+          editingRowId={editingRowId}
+          updateForm={updateForm}
+          resetForm={resetForm}
+          saveRow={saveRow}
+          startEdit={startEdit}
+          deleteRow={removeRow}
+          loadRows={loadRows}
+          handleExport={handleExport}
+          goToProjects={goToProjects}
+          goToImport={() => goToProjectImport(route.projectId)}
+          setSelectedProject={(projectId) => {
+            resetForm();
+            goToProjectRows(projectId);
+          }}
+          refreshKey={refreshKey}
+          openSettings={goToSettings}
+          user={user}
+        />
+        {floatingMenu}
+      </>
     );
   }
 
   if (route.page === 'projects') {
     return (
-      <ProjectsPage
-        projects={projects}
-        loadingProjects={loadingProjects}
-        error={error}
-        projectName={projectName}
-        setProjectName={setProjectName}
-        projectDescription={projectDescription}
-        setProjectDescription={setProjectDescription}
-        createProject={createProject}
-        openProject={goToProjectRows}
-        openSettings={goToSettings}
-        deleteProject={removeProject}
-        user={user}
-      />
+      <>
+        <ProjectsPage
+          projects={projects}
+          loadingProjects={loadingProjects}
+          error={error}
+          projectName={projectName}
+          setProjectName={setProjectName}
+          projectDescription={projectDescription}
+          setProjectDescription={setProjectDescription}
+          createProject={createProject}
+          openProject={goToProjectRows}
+          openSettings={goToSettings}
+          deleteProject={removeProject}
+          user={user}
+        />
+        {floatingMenu}
+      </>
     );
   }
 
   return (
-    <DashboardPage
-      projects={projects}
-      loadingProjects={loadingProjects}
-      error={error}
-      openProjectsPage={goToProjects}
-      openProjectRows={goToProjectRows}
-      openSettings={goToSettings}
-      user={user}
-    />
+    <>
+      <DashboardPage
+        projects={projects}
+        loadingProjects={loadingProjects}
+        error={error}
+        openProjectsPage={goToProjects}
+        openProjectRows={goToProjectRows}
+        openSettings={goToSettings}
+        user={user}
+      />
+      {floatingMenu}
+    </>
   );
 }

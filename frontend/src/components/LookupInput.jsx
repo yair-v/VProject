@@ -1,90 +1,77 @@
 import { useEffect, useRef, useState } from 'react';
 
-export default function LookupInput({ label, value, onChange, onCreate, loadOptions, placeholder, required = false }) {
-  const [input, setInput] = useState(value || '');
+export default function LookupInput({ label, value, onChange, loadOptions, onCreate, placeholder = '', required = false }) {
   const [options, setOptions] = useState([]);
   const [open, setOpen] = useState(false);
-  const cacheRef = useRef(new Map());
+  const [loading, setLoading] = useState(false);
+  const shellRef = useRef(null);
 
   useEffect(() => {
-    setInput(value || '');
-  }, [value]);
+    const handler = (event) => {
+      if (shellRef.current && !shellRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   useEffect(() => {
     let active = true;
-    const key = (input || '').trim().toLowerCase();
-
-    if (cacheRef.current.has(key)) {
-      setOptions(cacheRef.current.get(key));
-      return undefined;
-    }
-
-    const timer = setTimeout(async () => {
+    async function run() {
+      setLoading(true);
       try {
-        const result = await loadOptions(input || '');
-        if (!active) return;
-        cacheRef.current.set(key, result || []);
-        setOptions(result || []);
-      } catch {
-        if (active) setOptions([]);
+        const data = await loadOptions(value || '');
+        if (active) setOptions(data || []);
+      } finally {
+        if (active) setLoading(false);
       }
-    }, 200);
-
+    }
+    run();
     return () => {
       active = false;
-      clearTimeout(timer);
     };
-  }, [input, loadOptions]);
+  }, [value, loadOptions]);
+
+  async function handleCreate() {
+    if (!value?.trim()) return;
+    const created = await onCreate(value.trim());
+    onChange(created.name);
+    setOpen(false);
+  }
 
   return (
-    <label className="field">
+    <label className="field lookup-shell" ref={shellRef}>
       <span>{label}{required ? ' *' : ''}</span>
-      <div className="lookup">
-        <input
-          value={input}
-          placeholder={placeholder}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          onChange={(e) => {
-            const next = e.target.value;
-            setInput(next);
-            onChange(next);
-          }}
-        />
-        {open && (
-          <div className="lookup-menu">
-            {options.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="lookup-item"
-                onClick={() => {
-                  setInput(item.name);
-                  onChange(item.name);
-                  setOpen(false);
-                }}
-              >
-                {item.name}
-              </button>
-            ))}
-            {input.trim() && !options.some((item) => item.name === input.trim()) && (
-              <button
-                type="button"
-                className="lookup-create"
-                onClick={async () => {
-                  const created = await onCreate(input.trim());
-                  cacheRef.current.clear();
-                  setInput(created.name);
-                  onChange(created.name);
-                  setOpen(false);
-                }}
-              >
-                הוסף חדש: {input}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      <input
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+      />
+      {open && (
+        <div className="lookup-dropdown">
+          {loading ? (
+            <div className="lookup-option">טוען...</div>
+          ) : (
+            <>
+              {options.map((option) => (
+                <button key={option.id} type="button" className="lookup-option" onClick={() => { onChange(option.name); setOpen(false); }}>
+                  {option.name}
+                </button>
+              ))}
+              {!!value?.trim() && !options.some((option) => option.name === value.trim()) && (
+                <button type="button" className="lookup-option" onClick={handleCreate}>
+                  הוסף "{value.trim()}"
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </label>
   );
 }

@@ -1,17 +1,6 @@
-import bcrypt from 'bcryptjs';
 import { query, pool } from './db.js';
 
 async function init() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      username TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'manager' CHECK (role IN ('admin', 'manager')),
-      created_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
-  `);
-
   await query(`
     CREATE TABLE IF NOT EXISTS customers (
       id SERIAL PRIMARY KEY,
@@ -85,19 +74,6 @@ async function init() {
     BEFORE UPDATE ON project_rows
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
   `);
-
-  const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin1234';
-
-  const existingAdmin = await query(`SELECT id FROM users WHERE username = $1`, [adminUsername]);
-  if (!existingAdmin.rowCount) {
-    const passwordHash = await bcrypt.hash(adminPassword, 10);
-    await query(
-      `INSERT INTO users(username, password_hash, role) VALUES ($1, $2, 'admin')`,
-      [adminUsername, passwordHash]
-    );
-    console.log(`Default admin created: ${adminUsername}`);
-  }
 
   console.log('Database initialized successfully');
 }

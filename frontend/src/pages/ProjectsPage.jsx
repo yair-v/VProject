@@ -11,7 +11,6 @@ export default function ProjectsPage({
   setProjectDescription,
   createProject,
   openProject,
-  openSettings,
   deleteProject,
   user
 }) {
@@ -21,14 +20,14 @@ export default function ProjectsPage({
         <section className="hero-with-brand">
           <section className="toolbar card glass-card hero-toolbar">
             <div>
-              <div className="section-chip">Projects</div>
+              <div className="section-chip">פרוייקטים</div>
               <h2>ניהול פרויקטים</h2>
               <p>יצירה, בחירה וכניסה לניהול מפורט של כל פרויקט במסך נפרד.</p>
             </div>
-            <div className="toolbar-actions">
-              
-            </div>
+
+            <div className="toolbar-actions" />
           </section>
+
           <AppBrand />
         </section>
 
@@ -40,19 +39,33 @@ export default function ProjectsPage({
                 <h3>יצירת פרויקט חדש</h3>
               </div>
             </div>
+
             <form className="project-form" onSubmit={createProject}>
               <label className="field">
                 <span>שם פרויקט</span>
-                <input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="לדוגמה: פרויקט סניפי לאומי" />
+                <input
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="לדוגמה: פרויקט התקנת GBRU"
+                />
               </label>
+
               <label className="field">
-                <span>תיאור</span>
-                <input value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} placeholder="תיאור קצר" />
+                <span>תיאור הפרוייקט</span>
+                <input
+                  value={projectDescription}
+                  onChange={(e) => setProjectDescription(e.target.value)}
+                  placeholder="תיאור קצר"
+                />
               </label>
+
               <div className="form-actions">
-                <button type="submit" className="primary-btn">צור פרויקט</button>
+                <button type="submit" className="primary-btn">
+                  צור פרויקט
+                </button>
               </div>
             </form>
+
             {error && <div className="error-box">{error}</div>}
           </section>
 
@@ -69,25 +82,50 @@ export default function ProjectsPage({
             ) : projects.length ? (
               <div className="projects-pro-grid">
                 {projects.map((project) => (
-                  <div key={project.id} className="project-pro-card with-clock project-card-shell">
-                    <button type="button" className="project-card-main" onClick={() => openProject(project.id)}>
+                  <div
+                    key={project.id}
+                    className="project-pro-card with-clock project-card-shell"
+                  >
+                    <button
+                      type="button"
+                      className="project-card-main"
+                      onClick={() => openProject(project.id)}
+                    >
                       <div>
                         <div className="project-pro-top">
                           <strong>{project.name}</strong>
-                          <span className="rows-badge">{project.rows_count || 0} שורות</span>
+                          <span className="rows-badge">
+                            {project.rows_count || 0} שורות
+                          </span>
                         </div>
+
                         <p>{project.description || 'ללא תיאור'}</p>
-                        <div className="project-pro-bottom"><span>פתח ניהול</span></div>
+
+                        <div className="project-pro-bottom">
+                          <span>לדף ניהול הפרוייקט</span>
+                        </div>
                       </div>
-                      <ProjectClock total={project.rows_count} completed={project.completed_rows} pending={project.pending_rows} size={96} stroke={10} title="" />
+
+                      <ProjectClock
+                        total={project.rows_count}
+                        completed={project.completed_rows}
+                        pending={project.pending_rows}
+                        size={96}
+                        stroke={10}
+                        title=""
+                      />
                     </button>
+
                     {user.role === 'admin' && (
                       <div className="project-card-actions">
                         <button
                           type="button"
                           className="danger"
                           onClick={async () => {
-                            if (!window.confirm(`למחוק את הפרויקט "${project.name}"?`)) return;
+                            if (!window.confirm(`למחוק את הפרויקט "${project.name}"?`)) {
+                              return;
+                            }
+
                             try {
                               await deleteProject(project.id);
                             } catch (err) {

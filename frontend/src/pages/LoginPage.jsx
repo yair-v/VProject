@@ -41,7 +41,7 @@ export default function LoginPage({ onLogin }) {
           </label>
           <button type="submit" className="primary-btn" disabled={loading}>{loading ? 'נכנס...' : 'כניסה'}</button>
         </form>
-        <div className="login-tip">ברירת מחדל ראשונית: admin / admin1234</div>
+        <div className="login-tip"></div>
         {error && <div className="error-box">{error}</div>}
       </div>
     </div>

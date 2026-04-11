@@ -413,7 +413,7 @@ app.get('/api/installers', async (req, res) => {
   res.json(result.rows);
 });
 
-app.post('/api/installers', requireRole(['admin']), async (req, res) => {
+app.post('/api/installers', requireRole(['admin', 'manager']), async (req, res) => {
   const name = req.body.name?.trim();
   if (!name) return res.status(400).json({ error: 'Installer name is required' });
 

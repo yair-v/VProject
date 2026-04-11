@@ -1,3 +1,5 @@
+import AppBrand from '../components/AppBrand';
+
 export default function ProjectsPage({
     projects,
     loadingProjects,
@@ -12,12 +14,16 @@ export default function ProjectsPage({
     return (
         <div className="app-shell app-shell-projects">
             <main className="main-panel single-panel">
-                <section className="toolbar card glass-card">
-                    <div>
-                        <div className="section-chip">Projects</div>
-                        <h2>ניהול פרויקטים</h2>
-                        <p>יצירה, בחירה וכניסה לניהול מפורט של כל פרויקט במסך נפרד.</p>
-                    </div>
+                <section className="hero-with-brand">
+                    <section className="toolbar card glass-card hero-toolbar">
+                        <div>
+                            <div className="section-chip">Projects</div>
+                            <h2>ניהול פרויקטים</h2>
+                            <p>יצירה, בחירה וכניסה לניהול מפורט של כל פרויקט במסך נפרד.</p>
+                        </div>
+                    </section>
+
+                    <AppBrand />
                 </section>
 
                 <section className="projects-layout">

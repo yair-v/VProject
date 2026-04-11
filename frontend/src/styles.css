@@ -106,18 +106,34 @@ textarea:focus {
   backdrop-filter: blur(18px);
 }
 
+.hero-with-brand {
+  display: grid;
+  grid-template-columns: 1fr 170px;
+  gap: 18px;
+  align-items: center;
+}
+
+.hero-with-brand-import {
+  grid-template-columns: 1fr 150px;
+}
+
+.hero-toolbar {
+  margin: 0;
+}
+
 .app-brand {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
-  padding: 6px 0 2px;
+  align-self: stretch;
 }
 
 .app-brand-logo {
-  width: 180px;
-  max-width: 70%;
+  width: 150px;
+  max-width: 100%;
   height: auto;
   display: block;
+  object-fit: contain;
   filter: drop-shadow(0 10px 30px rgba(0, 120, 255, 0.25));
   opacity: 0.98;
   user-select: none;
@@ -869,7 +885,9 @@ tbody tr:hover {
 
   .content-grid,
   .projects-layout,
-  .dashboard-layout {
+  .dashboard-layout,
+  .hero-with-brand,
+  .hero-with-brand-import {
     grid-template-columns: 1fr;
   }
 
@@ -887,6 +905,10 @@ tbody tr:hover {
   .import-stats-grid,
   .stats-strip {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .app-brand {
+    justify-content: center;
   }
 }
 
@@ -925,6 +947,6 @@ tbody tr:hover {
   }
 
   .app-brand-logo {
-    width: 130px;
+    width: 110px;
   }
 }

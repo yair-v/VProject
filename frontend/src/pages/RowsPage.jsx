@@ -70,23 +70,25 @@ export default function RowsPage({
             </aside>
 
             <main className="main-panel">
-                <AppBrand />
+                <section className="hero-with-brand">
+                    <section className="toolbar card glass-card hero-toolbar">
+                        <div>
+                            <div className="section-chip">Rows Management</div>
+                            <h2>{selectedProject?.name || 'בחר פרויקט'}</h2>
+                            <p>{selectedProject?.description || 'ניהול שורות, טפסים, חיפוש ופעולות מהירות.'}</p>
+                        </div>
 
-                <section className="toolbar card glass-card">
-                    <div>
-                        <div className="section-chip">Rows Management</div>
-                        <h2>{selectedProject?.name || 'בחר פרויקט'}</h2>
-                        <p>{selectedProject?.description || 'ניהול שורות, טפסים, חיפוש ופעולות מהירות.'}</p>
-                    </div>
+                        <div className="toolbar-actions">
+                            <button type="button" className="secondary-btn" onClick={goToImport}>
+                                ייבוא Pro
+                            </button>
+                            <button type="button" className="secondary-btn" onClick={handleExport}>
+                                ייצוא אקסל
+                            </button>
+                        </div>
+                    </section>
 
-                    <div className="toolbar-actions">
-                        <button type="button" className="secondary-btn" onClick={goToImport}>
-                            ייבוא Pro
-                        </button>
-                        <button type="button" className="secondary-btn" onClick={handleExport}>
-                            ייצוא אקסל
-                        </button>
-                    </div>
+                    <AppBrand />
                 </section>
 
                 <section className="stats-strip">

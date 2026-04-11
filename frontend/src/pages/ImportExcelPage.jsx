@@ -162,28 +162,30 @@ export default function ImportExcelPage({ projectId, projectName, onBack, onImpo
                 </div>
 
                 <div className="import-phone-content">
-                    <AppBrand />
+                    <section className="hero-with-brand hero-with-brand-import">
+                        <section className="import-hero-card">
+                            <div className="section-chip">Import Pro</div>
+                            <h1>ייבוא אקסל מתקדם</h1>
+                            <p>
+                                פרויקט: <strong>{projectName || `#${projectId}`}</strong>
+                            </p>
 
-                    <section className="import-hero-card">
-                        <div className="section-chip">Import Pro</div>
-                        <h1>ייבוא אקסל מתקדם</h1>
-                        <p>
-                            פרויקט: <strong>{projectName || `#${projectId}`}</strong>
-                        </p>
+                            <div className="import-hero-actions">
+                                <button type="button" className="secondary-btn" onClick={onBack}>
+                                    חזרה לדף שורות
+                                </button>
 
-                        <div className="import-hero-actions">
-                            <button type="button" className="secondary-btn" onClick={onBack}>
-                                חזרה לדף שורות
-                            </button>
+                                <label className="primary-btn upload-btn">
+                                    בחר קובץ אקסל
+                                    <input type="file" accept=".xlsx,.xls" onChange={handleFileChange} hidden />
+                                </label>
+                            </div>
 
-                            <label className="primary-btn upload-btn">
-                                בחר קובץ אקסל
-                                <input type="file" accept=".xlsx,.xls" onChange={handleFileChange} hidden />
-                            </label>
-                        </div>
+                            {fileName ? <div className="import-file-badge">{fileName}</div> : null}
+                            {error ? <div className="error-box">{error}</div> : null}
+                        </section>
 
-                        {fileName ? <div className="import-file-badge">{fileName}</div> : null}
-                        {error ? <div className="error-box">{error}</div> : null}
+                        <AppBrand />
                     </section>
 
                     {loading ? (

@@ -20,20 +20,22 @@ export default function DashboardPage({
     return (
         <div className="app-shell app-shell-projects">
             <main className="main-panel single-panel">
-                <AppBrand />
+                <section className="hero-with-brand">
+                    <section className="toolbar card glass-card hero-toolbar">
+                        <div>
+                            <div className="section-chip">Dashboard Pro</div>
+                            <h2>לוח בקרה ראשי</h2>
+                            <p>תצוגת על של כל המערכת, גישה מהירה לפרויקטים, סטטיסטיקות וכרטיסי שליטה.</p>
+                        </div>
 
-                <section className="toolbar card glass-card">
-                    <div>
-                        <div className="section-chip">Dashboard Pro</div>
-                        <h2>לוח בקרה ראשי</h2>
-                        <p>תצוגת על של כל המערכת, גישה מהירה לפרויקטים, סטטיסטיקות וכרטיסי שליטה.</p>
-                    </div>
+                        <div className="toolbar-actions">
+                            <button type="button" className="primary-btn" onClick={openProjectsPage}>
+                                מעבר לדף פרויקטים
+                            </button>
+                        </div>
+                    </section>
 
-                    <div className="toolbar-actions">
-                        <button type="button" className="primary-btn" onClick={openProjectsPage}>
-                            מעבר לדף פרויקטים
-                        </button>
-                    </div>
+                    <AppBrand />
                 </section>
 
                 <section className="stats-strip dashboard-stats-strip">

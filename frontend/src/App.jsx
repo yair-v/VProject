@@ -1,131 +1,73 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from './api';
-import DashboardPage from './pages/DashboardPage';
 import ProjectsPage from './pages/ProjectsPage';
 import RowsPage from './pages/RowsPage';
 import ImportExcelPage from './pages/ImportExcelPage';
+import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import FloatingMenu from './components/FloatingMenu';
 
 function useDebouncedValue(value, delay = 300) {
   const [debounced, setDebounced] = useState(value);
-
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(value), delay);
     return () => clearTimeout(timer);
   }, [value, delay]);
-
   return debounced;
 }
 
 function parseHash() {
   const hash = window.location.hash || '#/login';
-
-  if (hash === '#/login') {
-    return { page: 'login', projectId: null };
-  }
-
-  if (hash === '#/dashboard') {
-    return { page: 'dashboard', projectId: null };
-  }
-
-  if (hash === '#/projects') {
-    return { page: 'projects', projectId: null };
-  }
-
-  if (hash === '#/settings') {
-    return { page: 'settings', projectId: null };
-  }
-
+  if (hash === '#/login') return { page: 'login', projectId: null };
+  if (hash === '#/dashboard') return { page: 'dashboard', projectId: null };
+  if (hash === '#/projects') return { page: 'projects', projectId: null };
+  if (hash === '#/settings') return { page: 'settings', projectId: null };
   const rowsMatch = hash.match(/^#\/project\/(\d+)\/rows$/);
-  if (rowsMatch) {
-    return { page: 'rows', projectId: Number(rowsMatch[1]) };
-  }
-
+  if (rowsMatch) return { page: 'rows', projectId: Number(rowsMatch[1]) };
   const importMatch = hash.match(/^#\/project\/(\d+)\/import$/);
-  if (importMatch) {
-    return { page: 'import', projectId: Number(importMatch[1]) };
-  }
-
+  if (importMatch) return { page: 'import', projectId: Number(importMatch[1]) };
   return { page: 'login', projectId: null };
 }
 
-function emptyForm() {
+function EMPTY_FORM() {
   return {
-    customer_name: '',
-    branch_name: '',
-    branch_number: '',
-    position_number: '',
-    serial_number: '',
-    installer_name: '',
-    target_date: '',
-    completed_date: '',
-    status: 'pending'
+    customer_name: '', branch_name: '', branch_number: '', position_number: '', serial_number: '', installer_name: '', target_date: '', completed_date: '', status: 'pending', custom_data: {}
   };
 }
 
 export default function App() {
   const [route, setRoute] = useState(parseHash());
-
   const [user, setUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
   });
-
   const [displaySettings, setDisplaySettings] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('displaySettings') || 'null');
-      return saved || { theme: 'dark', zoom: 100 };
-    } catch {
-      return { theme: 'dark', zoom: 100 };
-    }
+    try { return JSON.parse(localStorage.getItem('displaySettings') || 'null') || { theme: 'dark', zoom: 100 }; } catch { return { theme: 'dark', zoom: 100 }; }
   });
-
   const [projects, setProjects] = useState([]);
-  const [rowsData, setRowsData] = useState({
-    rows: [],
-    total: 0,
-    page: 1,
-    pageSize: 100
-  });
-
+  const [rowsData, setRowsData] = useState({ rows: [], total: 0, page: 1, pageSize: 100 });
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingRows, setLoadingRows] = useState(false);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
-
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const debouncedSearch = useDebouncedValue(search, 250);
-
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
-
   const [editingRowId, setEditingRowId] = useState(null);
-  const [form, setForm] = useState(emptyForm());
-
-  const selectedProject = useMemo(() => {
-    return projects.find((project) => project.id === route.projectId) || null;
-  }, [projects, route.projectId]);
+  const [form, setForm] = useState(EMPTY_FORM());
+  const selectedProject = useMemo(() => projects.find((project) => project.id === route.projectId) || null, [projects, route.projectId]);
 
   useEffect(() => {
-    function handleHashChange() {
-      setRoute(parseHash());
-    }
-
+    function handleHashChange() { setRoute(parseHash()); }
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   useEffect(() => {
-    if (!window.location.hash) {
-      window.location.hash = '/login';
-    }
-  }, []);
+    if (!window.location.hash) window.location.hash = user ? '/dashboard' : '/login';
+  }, [user]);
 
   useEffect(() => {
     localStorage.setItem('displaySettings', JSON.stringify(displaySettings));
@@ -135,408 +77,126 @@ export default function App() {
 
   useEffect(() => {
     if (!user) {
-      if (route.page !== 'login') {
-        window.location.hash = '/login';
-      }
+      if (route.page !== 'login') window.location.hash = '/login';
       return;
     }
-
-    if (route.page === 'login') {
-      window.location.hash = '/dashboard';
-    }
+    if (route.page === 'login') window.location.hash = '/dashboard';
   }, [user, route.page]);
 
   async function loadProjects() {
     if (!user) return;
-
     setLoadingProjects(true);
     try {
       const data = await api.getProjects();
       setProjects(data);
       setError('');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoadingProjects(false);
-    }
+    } catch (err) { setError(err.message); } finally { setLoadingProjects(false); }
   }
 
   async function loadRows(projectId = route.projectId, page = rowsData.page) {
     if (!projectId || !user) return;
-
     setLoadingRows(true);
     try {
-      const data = await api.getRows({
-        projectId,
-        page,
-        pageSize: rowsData.pageSize,
-        search: debouncedSearch,
-        status
-      });
-
+      const data = await api.getRows({ projectId, page, pageSize: rowsData.pageSize, search: debouncedSearch, status });
       setRowsData(data);
       setError('');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoadingRows(false);
-    }
+    } catch (err) { setError(err.message); } finally { setLoadingRows(false); }
   }
 
+  useEffect(() => { if (user) loadProjects(); }, [user]);
   useEffect(() => {
-    if (!user) return;
-    loadProjects();
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-    if (route.page !== 'rows') return;
-    if (!route.projectId) return;
-
+    if (!user || route.page !== 'rows' || !route.projectId) return;
     setRowsData((prev) => ({ ...prev, page: 1 }));
     loadRows(route.projectId, 1);
   }, [route.page, route.projectId, debouncedSearch, status, refreshKey, user]);
 
-  function goToLogin() {
-    window.location.hash = '/login';
-  }
-
-  function goToDashboard() {
-    window.location.hash = '/dashboard';
-  }
-
-  function goToProjects() {
-    window.location.hash = '/projects';
-  }
-
-  function goToSettings() {
-    const currentHash = window.location.hash || '#/dashboard';
-    sessionStorage.setItem('settingsBackHash', currentHash);
-    window.location.hash = '/settings';
-  }
-
-  function goBackFromSettings() {
-    const backHash = sessionStorage.getItem('settingsBackHash') || '#/dashboard';
-    window.location.hash = backHash;
-  }
-
-  function goBackGeneric() {
-    if (route.page === 'settings') {
-      goBackFromSettings();
-      return;
-    }
-
-    if (route.page === 'import' && route.projectId) {
-      window.location.hash = `/project/${route.projectId}/rows`;
-      return;
-    }
-
-    if (route.page === 'rows') {
-      window.location.hash = '/projects';
-      return;
-    }
-
-    if (route.page === 'projects') {
-      window.location.hash = '/dashboard';
-      return;
-    }
-
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-
-    window.location.hash = '/dashboard';
-  }
-
-  function goToProjectRows(projectId) {
-    window.location.hash = `/project/${projectId}/rows`;
-  }
-
-  function goToProjectImport(projectId) {
-    window.location.hash = `/project/${projectId}/import`;
-  }
-
-  function logout() {
-    localStorage.removeItem('user');
-    setUser(null);
-    setProjects([]);
-    setRowsData({
-      rows: [],
-      total: 0,
-      page: 1,
-      pageSize: 100
-    });
-    goToLogin();
-  }
+  function goToProjects() { window.location.hash = '/projects'; }
+  function goToDashboard() { window.location.hash = '/dashboard'; }
+  function goToProjectRows(projectId) { window.location.hash = `/project/${projectId}/rows`; }
+  function goToProjectImport(projectId) { window.location.hash = `/project/${projectId}/import`; }
+  function goToSettings() { const currentHash = window.location.hash || '#/dashboard'; sessionStorage.setItem('settingsBackHash', currentHash); window.location.hash = '/settings'; }
+  function goBackFromSettings() { window.location.hash = sessionStorage.getItem('settingsBackHash') || '#/dashboard'; }
+  function goBackGeneric() { if (route.page === 'settings') return goBackFromSettings(); if (route.page === 'import' && route.projectId) return window.location.hash = `/project/${route.projectId}/rows`; if (route.page === 'rows') return window.location.hash = '/projects'; if (route.page === 'projects') return window.location.hash = '/dashboard'; window.location.hash = '/dashboard'; }
+  function logout() { localStorage.removeItem('user'); setUser(null); setProjects([]); setRowsData({ rows: [], total: 0, page: 1, pageSize: 100 }); window.location.hash = '/login'; }
 
   function updateForm(field, value) {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
-
       if (field === 'status' && value === 'completed') {
         const today = new Date();
         const dd = String(today.getDate()).padStart(2, '0');
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         const yyyy = today.getFullYear();
         const displayDate = `${dd}/${mm}/${yyyy}`;
-
         if (!next.target_date) next.target_date = displayDate;
         if (!next.completed_date) next.completed_date = displayDate;
       }
-
       return next;
     });
   }
 
-  function resetForm() {
-    setForm(emptyForm());
-    setEditingRowId(null);
-  }
+  function resetForm() { setForm(EMPTY_FORM()); setEditingRowId(null); }
 
-  async function createProject(event) {
-    event.preventDefault();
+  async function createProject(e) {
+    e.preventDefault();
     if (!projectName.trim()) return;
-
     try {
-      const created = await api.createProject({
-        name: projectName.trim(),
-        description: projectDescription.trim()
-      });
-
-      setProjectName('');
-      setProjectDescription('');
-      await loadProjects();
-      setError('');
-      goToProjectRows(created.id);
-    } catch (err) {
-      setError(err.message);
-    }
+      const created = await api.createProject({ name: projectName, description: projectDescription });
+      setProjectName(''); setProjectDescription(''); await loadProjects(); setError(''); goToProjectRows(created.id);
+    } catch (err) { setError(err.message); }
   }
 
-  async function removeProject(projectId) {
-    try {
-      await api.deleteProject(projectId);
-      await loadProjects();
-
-      if (route.page === 'rows' && route.projectId === projectId) {
-        goToProjects();
-      }
-
-      setError('');
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
-  }
-
-  async function saveRow(event) {
-    event.preventDefault();
+  async function saveRow(e) {
+    e.preventDefault();
     if (!route.projectId) return;
-
     try {
       if (editingRowId) {
         const updated = await api.updateRow(route.projectId, editingRowId, form);
-
-        setRowsData((prev) => ({
-          ...prev,
-          rows: prev.rows.map((row) => (row.id === updated.id ? updated : row))
-        }));
+        setRowsData((prev) => ({ ...prev, rows: prev.rows.map((row) => row.id === updated.id ? updated : row) }));
       } else {
         const created = await api.createRow(route.projectId, form);
-
-        setRowsData((prev) => ({
-          ...prev,
-          total: prev.total + 1,
-          rows: [created, ...prev.rows].slice(0, prev.pageSize)
-        }));
+        setRowsData((prev) => ({ ...prev, total: prev.total + 1, rows: [created, ...prev.rows].slice(0, prev.pageSize) }));
       }
-
-      resetForm();
-      setError('');
-      setRefreshKey((prev) => prev + 1);
-      await loadProjects();
-    } catch (err) {
-      setError(err.message);
-    }
+      resetForm(); setError(''); setRefreshKey((prev) => prev + 1); await loadProjects();
+    } catch (err) { setError(err.message); }
   }
 
   function startEdit(row) {
     setEditingRowId(row.id);
-    setForm({
-      customer_name: row.customer_name || '',
-      branch_name: row.branch_name || '',
-      branch_number: row.branch_number || '',
-      position_number: row.position_number || '',
-      serial_number: row.serial_number || '',
-      installer_name: row.installer_name || '',
-      target_date: row.target_date || '',
-      completed_date: row.completed_date || '',
-      status: row.status || 'pending'
-    });
+    setForm({ customer_name: row.customer_name || '', branch_name: row.branch_name || '', branch_number: row.branch_number || '', position_number: row.position_number || '', serial_number: row.serial_number || '', installer_name: row.installer_name || '', target_date: row.target_date || '', completed_date: row.completed_date || '', status: row.status || 'pending', custom_data: row.custom_data || {} });
   }
 
-  async function removeRow(rowId) {
+  async function deleteRow(rowId) {
     if (!route.projectId) return;
     if (!window.confirm('למחוק את הרשומה?')) return;
-
     try {
       await api.deleteRow(route.projectId, rowId);
-
-      setRowsData((prev) => ({
-        ...prev,
-        total: Math.max(0, prev.total - 1),
-        rows: prev.rows.filter((row) => row.id !== rowId)
-      }));
-
-      setError('');
-      setRefreshKey((prev) => prev + 1);
-      await loadProjects();
-    } catch (err) {
-      setError(err.message);
-    }
+      setRowsData((prev) => ({ ...prev, total: Math.max(0, prev.total - 1), rows: prev.rows.filter((row) => row.id !== rowId) }));
+      setError(''); setRefreshKey((prev) => prev + 1); await loadProjects();
+    } catch (err) { setError(err.message); }
   }
 
   async function handleExport() {
     if (!route.projectId) return;
-
     try {
-      const blob = await api.exportRows(route.projectId);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-
-      link.href = url;
-      link.download = `project-${route.projectId}.xlsx`;
-      link.click();
-
-      URL.revokeObjectURL(url);
-      setError('');
-    } catch (err) {
-      setError(err.message);
-    }
+      const blob = await api.exportRows(route.projectId); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `project-${route.projectId}.xlsx`; a.click(); URL.revokeObjectURL(url); setError('');
+    } catch (err) { setError(err.message); }
   }
 
-  function handleLogin(nextUser) {
-    setUser(nextUser);
-    window.location.hash = '/dashboard';
+  async function deleteProject(projectId) {
+    try { await api.deleteProject(projectId); await loadProjects(); if (route.page === 'rows' && route.projectId === projectId) goToProjects(); setError(''); }
+    catch (err) { setError(err.message); throw err; }
   }
 
-  if (!user) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
+  function handleLogin(nextUser) { setUser(nextUser); window.location.hash = '/dashboard'; }
 
-  const floatingMenu = (
-    <FloatingMenu
-      user={user}
-      onDashboard={goToDashboard}
-      onProjects={goToProjects}
-      onSettings={goToSettings}
-      onBack={goBackGeneric}
-      onLogout={logout}
-    />
-  );
+  if (!user) return <LoginPage onLogin={handleLogin} />;
 
-  if (route.page === 'settings') {
-    return (
-      <>
-        <SettingsPage
-          user={user}
-          onBack={goBackFromSettings}
-          onLogout={logout}
-          displaySettings={displaySettings}
-          setDisplaySettings={setDisplaySettings}
-        />
-        {floatingMenu}
-      </>
-    );
-  }
+  const floatingMenu = <FloatingMenu user={user} onDashboard={goToDashboard} onProjects={goToProjects} onSettings={goToSettings} onBack={goBackGeneric} onLogout={logout} />;
 
-  if (route.page === 'import' && route.projectId) {
-    return (
-      <>
-        <ImportExcelPage
-          projectId={route.projectId}
-          projectName={selectedProject?.name || ''}
-          onBack={() => goToProjectRows(route.projectId)}
-        />
-        {floatingMenu}
-      </>
-    );
-  }
-
-  if (route.page === 'rows' && route.projectId) {
-    return (
-      <>
-        <RowsPage
-          projects={projects}
-          selectedProject={selectedProject}
-          rowsData={rowsData}
-          loadingRows={loadingRows}
-          loadingProjects={loadingProjects}
-          error={error}
-          search={search}
-          setSearch={setSearch}
-          status={status}
-          setStatus={setStatus}
-          form={form}
-          setForm={setForm}
-          editingRowId={editingRowId}
-          updateForm={updateForm}
-          resetForm={resetForm}
-          saveRow={saveRow}
-          startEdit={startEdit}
-          deleteRow={removeRow}
-          loadRows={loadRows}
-          handleExport={handleExport}
-          goToProjects={goToProjects}
-          goToImport={() => goToProjectImport(route.projectId)}
-          setSelectedProject={(projectId) => {
-            resetForm();
-            goToProjectRows(projectId);
-          }}
-          refreshKey={refreshKey}
-          openSettings={goToSettings}
-          user={user}
-        />
-        {floatingMenu}
-      </>
-    );
-  }
-
-  if (route.page === 'projects') {
-    return (
-      <>
-        <ProjectsPage
-          projects={projects}
-          loadingProjects={loadingProjects}
-          error={error}
-          projectName={projectName}
-          setProjectName={setProjectName}
-          projectDescription={projectDescription}
-          setProjectDescription={setProjectDescription}
-          createProject={createProject}
-          openProject={goToProjectRows}
-          openSettings={goToSettings}
-          deleteProject={removeProject}
-          user={user}
-        />
-        {floatingMenu}
-      </>
-    );
-  }
-
-  return (
-    <>
-      <DashboardPage
-        projects={projects}
-        loadingProjects={loadingProjects}
-        error={error}
-        openProjectsPage={goToProjects}
-        openProjectRows={goToProjectRows}
-        openSettings={goToSettings}
-        user={user}
-      />
-      {floatingMenu}
-    </>
-  );
+  if (route.page === 'settings') return <><SettingsPage user={user} onBack={goBackFromSettings} onLogout={logout} displaySettings={displaySettings} setDisplaySettings={setDisplaySettings} />{floatingMenu}</>;
+  if (route.page === 'import' && route.projectId) return <><ImportExcelPage projectId={route.projectId} projectName={selectedProject?.name || ''} onBack={() => goToProjectRows(route.projectId)} />{floatingMenu}</>;
+  if (route.page === 'rows' && route.projectId) return <><RowsPage projects={projects} selectedProject={selectedProject} rowsData={rowsData} loadingRows={loadingRows} loadingProjects={loadingProjects} error={error} search={search} setSearch={setSearch} status={status} setStatus={setStatus} form={form} setForm={setForm} editingRowId={editingRowId} updateForm={updateForm} resetForm={resetForm} saveRow={saveRow} startEdit={startEdit} deleteRow={deleteRow} loadRows={loadRows} handleExport={handleExport} goToProjects={goToProjects} goToImport={() => goToProjectImport(route.projectId)} setSelectedProject={(projectId) => { resetForm(); goToProjectRows(projectId); }} refreshKey={refreshKey} openSettings={goToSettings} user={user} />{floatingMenu}</>;
+  if (route.page === 'projects') return <><ProjectsPage projects={projects} loadingProjects={loadingProjects} error={error} projectName={projectName} setProjectName={setProjectName} projectDescription={projectDescription} setProjectDescription={setProjectDescription} createProject={createProject} openProject={goToProjectRows} deleteProject={deleteProject} user={user} />{floatingMenu}</>;
+  return <><DashboardPage projects={projects} loadingProjects={loadingProjects} error={error} openProjectsPage={goToProjects} openProjectRows={goToProjectRows} />{floatingMenu}</>;
 }

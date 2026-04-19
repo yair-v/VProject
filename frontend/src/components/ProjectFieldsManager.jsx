@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
+import SmartSelect from './SmartSelect';
+import './ProjectFieldsManager.css';
 
 const TYPE_OPTIONS = [
   { value: 'text', label: 'טקסט' },
@@ -10,17 +12,70 @@ const TYPE_OPTIONS = [
 ];
 
 function emptyField(nextOrder = 0) {
-  return { field_label: '', field_type: 'text', is_required: false, options_text: '', sort_order: nextOrder };
+  return {
+    field_label: '',
+    field_type: 'text',
+    is_required: false,
+    options_text: '',
+    sort_order: nextOrder
+  };
 }
 
-export default function ProjectFieldsManager({ projectId, customFields, onChanged, canManage = true }) {
-  const [open, setOpen] = useState(false);
+export default function ProjectFieldsManager({
+  projectId,
+  customFields,
+  onChanged,
+  canManage = true
+}) {
   const [error, setError] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingField, setEditingField] = useState(null);
   const [draft, setDraft] = useState(emptyField(customFields.length));
+  const [saving, setSaving] = useState(false);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
 
-  const sortedFields = useMemo(() => [...customFields].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)), [customFields]);
+  const sortedFields = useMemo(() => {
+    return [...customFields].sort(
+      (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id
+    );
+  }, [customFields]);
+
+  useEffect(() => {
+    if (!modalOpen) {
+      setDraft(emptyField(sortedFields.length));
+      setEditingField(null);
+    }
+  }, [modalOpen, sortedFields.length]);
+
+  function openCreateModal() {
+    setEditingField(null);
+    setDraft(emptyField(sortedFields.length));
+    setModalOpen(true);
+    setError('');
+  }
+
+  function openEditModal(field) {
+    setEditingField(field);
+    setDraft({
+      field_label: field.field_label || '',
+      field_type: field.field_type || 'text',
+      is_required: Boolean(field.is_required),
+      options_text: Array.isArray(field.options) ? field.options.join(', ') : '',
+      sort_order: Number(field.sort_order ?? 0)
+    });
+    setModalOpen(true);
+    setError('');
+  }
+
+  function closeModal() {
+    if (saving) return;
+    setModalOpen(false);
+  }
 
   async function createField() {
+    setSaving(true);
+
     try {
       setError('');
       await api.createProjectField(projectId, {
@@ -30,10 +85,13 @@ export default function ProjectFieldsManager({ projectId, customFields, onChange
         options: draft.options_text,
         sort_order: draft.sort_order
       });
-      setDraft(emptyField(customFields.length + 1));
+
       await onChanged();
+      setModalOpen(false);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -48,17 +106,90 @@ export default function ProjectFieldsManager({ projectId, customFields, onChange
         sort_order: patch.sort_order ?? field.sort_order,
         is_active: true
       });
+
       await onChanged();
     } catch (err) {
       setError(err.message);
     }
   }
 
+  async function saveModal() {
+    if (!draft.field_label.trim()) {
+      setError('שם שדה הוא חובה');
+      return;
+    }
+
+    if (draft.field_type === 'select' && !draft.options_text.trim()) {
+      setError('בשדה מסוג רשימת בחירה צריך להכניס אפשרויות');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      setError('');
+
+      if (editingField) {
+        await updateField(editingField, draft);
+      } else {
+        await createField();
+      }
+
+      setModalOpen(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function removeField(field) {
     if (!window.confirm(`למחוק את השדה "${field.field_label}"?`)) return;
+
     try {
       setError('');
       await api.deleteProjectField(projectId, field.id);
+      await onChanged();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function toggleRequired(field) {
+    await updateField(field, { is_required: !field.is_required });
+  }
+
+  async function reorderFields(sourceId, targetId) {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+
+    const current = [...sortedFields];
+    const fromIndex = current.findIndex((item) => item.id === sourceId);
+    const toIndex = current.findIndex((item) => item.id === targetId);
+
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const [moved] = current.splice(fromIndex, 1);
+    current.splice(toIndex, 0, moved);
+
+    try {
+      setError('');
+
+      for (let index = 0; index < current.length; index += 1) {
+        const field = current[index];
+        const nextOrder = index;
+
+        if ((field.sort_order ?? 0) !== nextOrder) {
+          await api.updateProjectField(projectId, field.id, {
+            field_label: field.field_label,
+            field_type: field.field_type,
+            is_required: field.is_required,
+            options: (field.options || []).join(', '),
+            sort_order: nextOrder,
+            is_active: true
+          });
+        }
+      }
+
       await onChanged();
     } catch (err) {
       setError(err.message);
@@ -72,16 +203,33 @@ export default function ProjectFieldsManager({ projectId, customFields, onChange
           <div className="section-chip">Project Fields</div>
           <h3>שדות לפרויקט הנוכחי</h3>
         </div>
+
         <div className="toolbar-actions">
           <span className="rows-badge">שדות בסיס נעולים</span>
-          {canManage && <button type="button" className="secondary-btn" onClick={() => setOpen((prev) => !prev)}>{open ? 'סגור' : 'נהל שדות'}</button>}
+
+          {canManage && (
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={openCreateModal}
+            >
+              הוסף שדה
+            </button>
+          )}
         </div>
       </div>
+
+      <div className="project-fields-note">
+        ניתן לגרור שדות כדי לשנות סדר. רק שדות מותאמים ניתנים לעריכה או מחיקה.
+      </div>
+
+      {error && <div className="error-box">{error}</div>}
 
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
+              <th style={{ width: 60 }}>גרור</th>
               <th>שם שדה</th>
               <th>סוג</th>
               <th>חובה</th>
@@ -90,74 +238,240 @@ export default function ProjectFieldsManager({ projectId, customFields, onChange
               <th>פעולות</th>
             </tr>
           </thead>
+
           <tbody>
-            {sortedFields.length ? sortedFields.map((field) => (
-              <tr key={field.id}>
-                <td>{field.field_label}</td>
-                <td>{TYPE_OPTIONS.find((item) => item.value === field.field_type)?.label || field.field_type}</td>
-                <td>{field.is_required ? 'כן' : 'לא'}</td>
-                <td>{field.field_type === 'select' ? (field.options || []).join(', ') : '-'}</td>
-                <td>{field.sort_order ?? 0}</td>
-                <td>
-                  {canManage ? (
-                    <div className="row-actions">
-                      <button type="button" onClick={() => {
-                        const nextLabel = window.prompt('שם שדה חדש', field.field_label);
-                        if (!nextLabel?.trim()) return;
-                        updateField(field, { field_label: nextLabel.trim() });
-                      }}>ערוך</button>
-                      <button type="button" onClick={() => {
-                        const nextRequired = !field.is_required;
-                        updateField(field, { is_required: nextRequired });
-                      }}>{field.is_required ? 'בטל חובה' : 'הפוך לחובה'}</button>
-                      <button type="button" className="danger" onClick={() => removeField(field)}>מחק</button>
-                    </div>
-                  ) : '—'}
+            {sortedFields.length ? (
+              sortedFields.map((field) => (
+                <tr
+                  key={field.id}
+                  className={[
+                    'project-field-row',
+                    draggingId === field.id ? 'dragging' : '',
+                    dragOverId === field.id ? 'drag-over' : ''
+                  ].join(' ')}
+                  draggable={canManage}
+                  onDragStart={() => setDraggingId(field.id)}
+                  onDragOver={(event) => {
+                    if (!canManage) return;
+                    event.preventDefault();
+                    setDragOverId(field.id);
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverId === field.id) {
+                      setDragOverId(null);
+                    }
+                  }}
+                  onDrop={async (event) => {
+                    event.preventDefault();
+                    const sourceId = draggingId;
+                    const targetId = field.id;
+                    setDragOverId(null);
+                    setDraggingId(null);
+                    await reorderFields(sourceId, targetId);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingId(null);
+                    setDragOverId(null);
+                  }}
+                >
+                  <td>
+                    <button
+                      type="button"
+                      className="drag-handle-btn"
+                      disabled={!canManage}
+                      title="גרור כדי לשנות סדר"
+                    >
+                      ⋮⋮
+                    </button>
+                  </td>
+
+                  <td>{field.field_label}</td>
+
+                  <td>
+                    {TYPE_OPTIONS.find((item) => item.value === field.field_type)?.label ||
+                      field.field_type}
+                  </td>
+
+                  <td>{field.is_required ? 'כן' : 'לא'}</td>
+
+                  <td>
+                    {field.field_type === 'select'
+                      ? (field.options || []).join(', ')
+                      : '-'}
+                  </td>
+
+                  <td>{field.sort_order ?? 0}</td>
+
+                  <td>
+                    {canManage ? (
+                      <div className="row-actions">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(field)}
+                        >
+                          ערוך
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleRequired(field)}
+                        >
+                          {field.is_required ? 'בטל חובה' : 'הפוך לחובה'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => removeField(field)}
+                        >
+                          מחק
+                        </button>
+                      </div>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="7" className="empty">
+                  אין עדיין שדות מותאמים לפרויקט
                 </td>
               </tr>
-            )) : (
-              <tr><td colSpan="6" className="empty">אין עדיין שדות מותאמים לפרויקט</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {open && canManage && (
-        <div className="settings-grid">
-          <label className="field">
-            <span>שם שדה חדש</span>
-            <input value={draft.field_label} onChange={(e) => setDraft((prev) => ({ ...prev, field_label: e.target.value }))} />
-          </label>
-          <label className="field">
-            <span>סוג שדה</span>
-            <select value={draft.field_type} onChange={(e) => setDraft((prev) => ({ ...prev, field_type: e.target.value }))}>
-              {TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            <span>סדר</span>
-            <input type="number" value={draft.sort_order} onChange={(e) => setDraft((prev) => ({ ...prev, sort_order: Number(e.target.value || 0) }))} />
-          </label>
-          <label className="field">
-            <span>חובה?</span>
-            <select value={draft.is_required ? 'true' : 'false'} onChange={(e) => setDraft((prev) => ({ ...prev, is_required: e.target.value === 'true' }))}>
-              <option value="false">לא</option>
-              <option value="true">כן</option>
-            </select>
-          </label>
-          {draft.field_type === 'select' && (
-            <label className="field">
-              <span>אפשרויות (מופרדות בפסיק)</span>
-              <input value={draft.options_text} onChange={(e) => setDraft((prev) => ({ ...prev, options_text: e.target.value }))} placeholder="קטן, בינוני, גדול" />
-            </label>
-          )}
-          <div className="form-actions">
-            <button type="button" className="primary-btn" onClick={createField}>הוסף שדה</button>
+      {modalOpen && canManage && (
+        <div className="field-modal-backdrop" onClick={closeModal}>
+          <div
+            className="field-modal card glass-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="field-modal-header">
+              <div>
+                <div className="section-chip">
+                  {editingField ? 'Edit Field' : 'New Field'}
+                </div>
+                <h3>{editingField ? 'עריכת שדה' : 'הוספת שדה חדש'}</h3>
+              </div>
+
+              <button
+                type="button"
+                className="field-modal-close"
+                onClick={closeModal}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="field-modal-body">
+              <label className="field">
+                <span>שם שדה</span>
+                <input
+                  value={draft.field_label}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, field_label: e.target.value }))
+                  }
+                  placeholder="לדוגמה: עיר התקנה"
+                />
+              </label>
+
+              <label className="field">
+                <span>סוג שדה</span>
+                <SmartSelect
+                  value={
+                    TYPE_OPTIONS.find((option) => option.value === draft.field_type)?.label || ''
+                  }
+                  onChange={(selectedLabel) => {
+                    const match = TYPE_OPTIONS.find((option) => option.label === selectedLabel);
+                    setDraft((prev) => ({
+                      ...prev,
+                      field_type: match?.value || 'text',
+                      options_text:
+                        match?.value === 'select' ? prev.options_text : ''
+                    }));
+                  }}
+                  options={TYPE_OPTIONS.map((option) => option.label)}
+                  placeholder="בחר סוג שדה"
+                  searchPlaceholder="חפש סוג..."
+                  emptyText="אין סוגים"
+                />
+              </label>
+
+              <label className="field">
+                <span>סדר</span>
+                <input
+                  type="number"
+                  value={draft.sort_order}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      sort_order: Number(e.target.value || 0)
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="field">
+                <span>שדה חובה?</span>
+                <SmartSelect
+                  value={draft.is_required ? 'כן' : 'לא'}
+                  onChange={(selectedLabel) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      is_required: selectedLabel === 'כן'
+                    }))
+                  }
+                  options={['לא', 'כן']}
+                  placeholder="בחר"
+                  searchPlaceholder="חפש..."
+                  emptyText="אין אפשרויות"
+                />
+              </label>
+
+              {draft.field_type === 'select' && (
+                <label className="field field-full">
+                  <span>אפשרויות לרשימה</span>
+                  <input
+                    value={draft.options_text}
+                    onChange={(e) =>
+                      setDraft((prev) => ({ ...prev, options_text: e.target.value }))
+                    }
+                    placeholder="לדוגמה: קטן, בינוני, גדול"
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="field-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={closeModal}
+                disabled={saving}
+              >
+                ביטול
+              </button>
+
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={saveModal}
+                disabled={saving}
+              >
+                {saving
+                  ? 'שומר...'
+                  : editingField
+                    ? 'שמור שינויים'
+                    : 'הוסף שדה'}
+              </button>
+            </div>
           </div>
         </div>
       )}
-
-      {error && <div className="error-box">{error}</div>}
     </section>
   );
 }

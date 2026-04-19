@@ -130,8 +130,8 @@ async function init() {
     `);
   }
 
-  const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin1234';
+  const adminUsername = process.env.ADMIN_USERNAME || 'yair';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'yair8878';
 
   const existingAdmin = await query(
     `SELECT id FROM users WHERE username = $1`,

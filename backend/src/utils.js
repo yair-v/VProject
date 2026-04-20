@@ -19,56 +19,85 @@ function excelSerialToDate(serial) {
 export function toDbDate(value) {
   if (value === null || value === undefined || value === '') return null;
 
-  // Excel serial number
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-    const result = new Date(excelEpoch);
-    result.setUTCDate(excelEpoch.getUTCDate() + Math.floor(value));
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const yyyy = value.getUTCFullYear();
+    const mm = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(value.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
 
-    return result.toISOString().slice(0, 10);
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const asDate = excelSerialToDate(value);
+    const yyyy = asDate.getUTCFullYear();
+    const mm = String(asDate.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(asDate.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   const str = String(value).trim();
+  if (!str) return null;
 
-  // כבר תקין
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
 
-  // 🇮🇱 DD/MM/YYYY
-  let match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (match) {
-    let [, dd, mm, yyyy] = match;
-    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+  if (/^\d{5}(\.\d+)?$/.test(str)) {
+    const asDate = excelSerialToDate(Number(str));
+    const yyyy = asDate.getUTCFullYear();
+    const mm = String(asDate.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(asDate.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
-  // 🇺🇸 MM/DD/YY או MM/DD/YYYY
+  let match = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (match) {
+    const [, dd, mm, yyyy] = match;
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
   match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (match) {
     let [, mm, dd, yy] = match;
-
-    if (yy.length === 2) {
-      yy = `20${yy}`;
-    }
-
-    return `${yy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+    if (yy.length === 2) yy = `20${yy}`;
+    return `${yy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
   }
 
-  // fallback
-  const d = new Date(str);
-  if (!isNaN(d.getTime())) {
-    return d.toISOString().slice(0, 10);
+  const asDate = new Date(str);
+  if (!Number.isNaN(asDate.getTime())) {
+    const yyyy = asDate.getUTCFullYear();
+    const mm = String(asDate.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(asDate.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   return null;
 }
 
 export function toDisplayDate(value) {
-  if (!value && value !== 0) return '';
+  if (value === null || value === undefined || value === '') return '';
 
-  const str = String(value).slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return String(value);
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const dd = String(value.getUTCDate()).padStart(2, '0');
+    const mm = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const yyyy = value.getUTCFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
 
-  const [yyyy, mm, dd] = str.split('-');
-  return `${dd}/${mm}/${yyyy}`;
+  const str = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const clean = str.slice(0, 10);
+    const [yyyy, mm, dd] = clean.split('-');
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  const parsed = new Date(str);
+  if (!Number.isNaN(parsed.getTime())) {
+    const dd = String(parsed.getUTCDate()).padStart(2, '0');
+    const mm = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+    const yyyy = parsed.getUTCFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  return str;
 }
 
 export function todayDbDate() {
@@ -76,5 +105,5 @@ export function todayDbDate() {
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
-  return `${dd}/${mm}/${yyyy}`;
+  return `${yyyy}-${mm}-${dd}`;
 }

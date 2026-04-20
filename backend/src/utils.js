@@ -19,40 +19,43 @@ function excelSerialToDate(serial) {
 export function toDbDate(value) {
   if (value === null || value === undefined || value === '') return null;
 
+  // Excel serial number
   if (typeof value === 'number' && Number.isFinite(value)) {
-    const asDate = excelSerialToDate(value);
-    const yyyy = asDate.getUTCFullYear();
-    const mm = String(asDate.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(asDate.getUTCDate()).padStart(2, '0');
-    return `${dd}/${mm}/${yyyy}`;
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const result = new Date(excelEpoch);
+    result.setUTCDate(excelEpoch.getUTCDate() + Math.floor(value));
+
+    return result.toISOString().slice(0, 10);
   }
 
   const str = String(value).trim();
 
-  if (!str) return null;
-
+  // כבר תקין
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
 
-  if (/^\d{5}(\.\d+)?$/.test(str)) {
-    const asDate = excelSerialToDate(Number(str));
-    const yyyy = asDate.getUTCFullYear();
-    const mm = String(asDate.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(asDate.getUTCDate()).padStart(2, '0');
-    return `${dd}/${mm}/${yyyy}`;
-  }
-
-  const match = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  // 🇮🇱 DD/MM/YYYY
+  let match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (match) {
-    const [, dd, mm, yyyy] = match;
-    return `${dd}/${mm}/${yyyy}`;
+    let [, dd, mm, yyyy] = match;
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
   }
 
-  const asDate = new Date(str);
-  if (!Number.isNaN(asDate.getTime())) {
-    const yyyy = asDate.getFullYear();
-    const mm = String(asDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(asDate.getDate()).padStart(2, '0');
-    return `${dd}/${mm}/${yyyy}`;
+  // 🇺🇸 MM/DD/YY או MM/DD/YYYY
+  match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (match) {
+    let [, mm, dd, yy] = match;
+
+    if (yy.length === 2) {
+      yy = `20${yy}`;
+    }
+
+    return `${yy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+  }
+
+  // fallback
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().slice(0, 10);
   }
 
   return null;

@@ -291,6 +291,9 @@ function formatCustomDataForDisplay(customData, customFields) {
 }
 
 function formatRow(row, customFields = []) {
+  const targetRaw = row.target_date ? toDbDate(row.target_date) : null;
+  const completedRaw = row.completed_date ? toDbDate(row.completed_date) : null;
+
   return {
     id: row.id,
     project_id: row.project_id,
@@ -302,8 +305,15 @@ function formatRow(row, customFields = []) {
     serial_number: row.serial_number || '',
     installer_id: row.installer_id,
     installer_name: row.installer_name || '',
-    target_date: toDisplayDate(row.target_date),
-    completed_date: toDisplayDate(row.completed_date),
+
+    target_date: toDisplayDate(targetRaw),
+    target_date_raw: targetRaw,
+    target_date_ts: targetRaw ? new Date(targetRaw).getTime() : null,
+
+    completed_date: toDisplayDate(completedRaw),
+    completed_date_raw: completedRaw,
+    completed_date_ts: completedRaw ? new Date(completedRaw).getTime() : null,
+
     status: row.status,
     status_label: statusLabel(row.status),
     custom_data: formatCustomDataForDisplay(row.custom_data, customFields),

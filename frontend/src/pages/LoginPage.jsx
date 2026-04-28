@@ -66,7 +66,7 @@ export default function LoginPage({ onLogin }) {
         <div className="section-chip">Secure Login</div>
         <h1 className="login-title">התחברות מאובטחת</h1>
         <p className="login-subtitle">
-          כניסה עם סיסמה מוצפנת בשרת, JWT, ואימות דו־שלבי כאשר מופעל.
+
         </p>
 
         <form className="row-form" onSubmit={handleSubmit}>
@@ -122,7 +122,7 @@ export default function LoginPage({ onLogin }) {
         </form>
 
         <div className="login-tip">
-          הסיסמה לא נשמרת בקוד. השרת שומר hash בלבד ומחזיר token חתום לאחר התחברות.
+
         </div>
 
         {error && <div className="error-box">{error}</div>}

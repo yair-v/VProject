@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import AppBrand from '../components/AppBrand';
-import SmartSelect from '../components/SmartSelect';
 
 function DisplaySettingsTab({ displaySettings, setDisplaySettings }) {
   return (
@@ -20,9 +19,7 @@ function DisplaySettingsTab({ displaySettings, setDisplaySettings }) {
             <button
               type="button"
               className={displaySettings.theme === 'dark' ? 'active' : ''}
-              onClick={() =>
-                setDisplaySettings((prev) => ({ ...prev, theme: 'dark' }))
-              }
+              onClick={() => setDisplaySettings((prev) => ({ ...prev, theme: 'dark' }))}
             >
               כהה
             </button>
@@ -30,9 +27,7 @@ function DisplaySettingsTab({ displaySettings, setDisplaySettings }) {
             <button
               type="button"
               className={displaySettings.theme === 'light' ? 'active' : ''}
-              onClick={() =>
-                setDisplaySettings((prev) => ({ ...prev, theme: 'light' }))
-              }
+              onClick={() => setDisplaySettings((prev) => ({ ...prev, theme: 'light' }))}
             >
               בהיר
             </button>
@@ -66,6 +61,9 @@ function UsersTab({ user }) {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('manager');
   const [error, setError] = useState('');
+  const [twofaModal, setTwofaModal] = useState(null);
+  const [twofaCode, setTwofaCode] = useState('');
+  const [loading2FA, setLoading2FA] = useState(false);
 
   async function loadUsers() {
     try {
@@ -125,6 +123,64 @@ function UsersTab({ user }) {
     }
   }
 
+  async function setup2FA(item) {
+    setLoading2FA(true);
+    setError('');
+    setTwofaCode('');
+
+    try {
+      const result = await api.setupUser2FA(item.id);
+      setTwofaModal({
+        user: item,
+        qr: result.qr,
+        secret: result.secret
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading2FA(false);
+    }
+  }
+
+  async function enable2FA() {
+    if (!twofaModal?.user?.id) return;
+    if (!twofaCode.trim()) {
+      setError('יש להזין קוד 2FA');
+      return;
+    }
+
+    setLoading2FA(true);
+    setError('');
+
+    try {
+      await api.enableUser2FA(twofaModal.user.id, twofaCode.trim());
+      setTwofaModal(null);
+      setTwofaCode('');
+      await loadUsers();
+      window.alert('2FA הופעל בהצלחה');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading2FA(false);
+    }
+  }
+
+  async function disable2FA(item) {
+    if (!window.confirm(`לבטל 2FA עבור ${item.username}?`)) return;
+
+    setLoading2FA(true);
+    setError('');
+
+    try {
+      await api.disableUser2FA(item.id);
+      await loadUsers();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading2FA(false);
+    }
+  }
+
   if (user.role !== 'admin') {
     return (
       <section className="card glass-card settings-panel">
@@ -150,25 +206,15 @@ function UsersTab({ user }) {
 
         <label className="field">
           <span>סיסמה</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
 
         <label className="field">
           <span>רמה</span>
-          <SmartSelect
-            value={role === 'admin' ? 'מנהל' : 'אחראי'}
-            onChange={(selected) =>
-              setRole(selected === 'מנהל' ? 'admin' : 'manager')
-            }
-            options={['אחראי', 'מנהל']}
-            placeholder="בחר רמה"
-            searchPlaceholder="חפש רמה..."
-            emptyText="אין רמות"
-          />
+          <select value={role} onChange={(e) => setRole(e.target.value)}>
+            <option value="manager">אחראי</option>
+            <option value="admin">מנהל</option>
+          </select>
         </label>
       </div>
 
@@ -186,41 +232,62 @@ function UsersTab({ user }) {
             <tr>
               <th>שם משתמש</th>
               <th>רמה</th>
+              <th>2FA</th>
               <th>נוצר</th>
               <th>פעולות</th>
             </tr>
           </thead>
+
           <tbody>
             {users.map((item) => (
               <tr key={item.id}>
                 <td>{item.username}</td>
+
                 <td>
-                  <SmartSelect
-                    value={item.role === 'admin' ? 'מנהל' : 'אחראי'}
-                    onChange={(selected) =>
-                      changeRole(item, selected === 'מנהל' ? 'admin' : 'manager')
-                    }
-                    options={['אחראי', 'מנהל']}
-                    placeholder="בחר רמה"
-                    searchPlaceholder="חפש רמה..."
-                    emptyText="אין רמות"
-                  />
+                  <select
+                    value={item.role}
+                    onChange={(e) => changeRole(item, e.target.value)}
+                  >
+                    <option value="manager">אחראי</option>
+                    <option value="admin">מנהל</option>
+                  </select>
                 </td>
+
                 <td>
-                  {item.created_at
-                    ? new Date(item.created_at).toLocaleDateString('he-IL', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    })
-                    : ''}
+                  {item.twofa_enabled ? (
+                    <span className="ok-pill">פעיל</span>
+                  ) : (
+                    <span className="warn-pill">לא פעיל</span>
+                  )}
                 </td>
-                <td></td>
+
+                <td>{String(item.created_at || '').slice(0, 10)}</td>
+
                 <td>
                   <div className="row-actions">
                     <button type="button" onClick={() => changePassword(item)}>
                       שנה סיסמה
                     </button>
+
+                    {item.twofa_enabled ? (
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() => disable2FA(item)}
+                        disabled={loading2FA}
+                      >
+                        בטל 2FA
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setup2FA(item)}
+                        disabled={loading2FA}
+                      >
+                        הפעל 2FA
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       className="danger"
@@ -235,11 +302,92 @@ function UsersTab({ user }) {
           </tbody>
         </table>
       </div>
+
+      {twofaModal && (
+        <div className="field-modal-backdrop" onClick={() => setTwofaModal(null)}>
+          <div className="field-modal card glass-card" onClick={(e) => e.stopPropagation()}>
+            <div className="field-modal-header">
+              <div>
+                <div className="section-chip">2FA</div>
+                <h3>הפעלת אימות דו־שלבי</h3>
+              </div>
+
+              <button
+                type="button"
+                className="field-modal-close"
+                onClick={() => setTwofaModal(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="field-modal-body">
+              <div className="field field-full">
+                <span>משתמש</span>
+                <strong>{twofaModal.user.username}</strong>
+              </div>
+
+              <div className="field field-full">
+                <span>סרוק את הקוד באפליקציית Google Authenticator / Microsoft Authenticator</span>
+                <div style={{ textAlign: 'center', padding: 12 }}>
+                  <img
+                    src={twofaModal.qr}
+                    alt="2FA QR"
+                    style={{
+                      width: 220,
+                      height: 220,
+                      maxWidth: '100%',
+                      background: '#fff',
+                      borderRadius: 16,
+                      padding: 10
+                    }}
+                  />
+                </div>
+              </div>
+
+              <label className="field field-full">
+                <span>קוד אימות מהאפליקציה</span>
+                <input
+                  value={twofaCode}
+                  onChange={(e) => setTwofaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="123456"
+                  inputMode="numeric"
+                  maxLength={6}
+                />
+              </label>
+
+              <div className="field field-full">
+                <span>קוד ידני לגיבוי</span>
+                <input readOnly value={twofaModal.secret || ''} />
+              </div>
+            </div>
+
+            <div className="field-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setTwofaModal(null)}
+              >
+                ביטול
+              </button>
+
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={enable2FA}
+                disabled={loading2FA}
+              >
+                {loading2FA ? 'מאמת...' : 'אמת והפעל 2FA'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
 
-function TablesTab({ user }) {
+function TablesTab() {
   const [customers, setCustomers] = useState([]);
   const [installers, setInstallers] = useState([]);
   const [customerName, setCustomerName] = useState('');
@@ -361,16 +509,8 @@ function TablesTab({ user }) {
                   <td>{item.name}</td>
                   <td>
                     <div className="row-actions">
-                      <button type="button" onClick={() => renameCustomer(item)}>
-                        ערוך
-                      </button>
-                      <button
-                        type="button"
-                        className="danger"
-                        onClick={() => removeCustomer(item)}
-                      >
-                        מחק
-                      </button>
+                      <button type="button" onClick={() => renameCustomer(item)}>ערוך</button>
+                      <button type="button" className="danger" onClick={() => removeCustomer(item)}>מחק</button>
                     </div>
                   </td>
                 </tr>
@@ -388,54 +528,40 @@ function TablesTab({ user }) {
           </div>
         </div>
 
-        {user.role === 'admin' ? (
-          <>
-            <div className="form-actions">
-              <input
-                value={installerName}
-                onChange={(e) => setInstallerName(e.target.value)}
-                placeholder="מתקין חדש"
-              />
-              <button type="button" className="primary-btn" onClick={addInstaller}>
-                הוסף
-              </button>
-            </div>
+        <div className="form-actions">
+          <input
+            value={installerName}
+            onChange={(e) => setInstallerName(e.target.value)}
+            placeholder="מתקין חדש"
+          />
+          <button type="button" className="primary-btn" onClick={addInstaller}>
+            הוסף
+          </button>
+        </div>
 
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>שם</th>
-                    <th>פעולות</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {installers.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.name}</td>
-                      <td>
-                        <div className="row-actions">
-                          <button type="button" onClick={() => renameInstaller(item)}>
-                            ערוך
-                          </button>
-                          <button
-                            type="button"
-                            className="danger"
-                            onClick={() => removeInstaller(item)}
-                          >
-                            מחק
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : (
-          <div className="empty">לניהול מתקינים נדרשת הרשאת מנהל</div>
-        )}
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>שם</th>
+                <th>פעולות</th>
+              </tr>
+            </thead>
+            <tbody>
+              {installers.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.name}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button type="button" onClick={() => renameInstaller(item)}>ערוך</button>
+                      <button type="button" className="danger" onClick={() => removeInstaller(item)}>מחק</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {error && <div className="error-box">{error}</div>}
@@ -450,13 +576,11 @@ export default function SettingsPage({
   displaySettings,
   setDisplaySettings
 }) {
-  const tabs = useMemo(() => {
-    return [
-      { key: 'display', label: 'תצוגה' },
-      { key: 'tables', label: 'טבלאות' },
-      ...(user.role === 'admin' ? [{ key: 'users', label: 'משתמשים' }] : [])
-    ];
-  }, [user.role]);
+  const tabs = useMemo(() => [
+    { key: 'display', label: 'תצוגה' },
+    { key: 'tables', label: 'טבלאות' },
+    ...(user.role === 'admin' ? [{ key: 'users', label: 'משתמשים' }] : [])
+  ], [user.role]);
 
   const [activeTab, setActiveTab] = useState(tabs[0].key);
 
@@ -474,19 +598,13 @@ export default function SettingsPage({
             <div>
               <div className="section-chip">Settings</div>
               <h2>הגדרות מערכת</h2>
-              <p>ניהול משתמשים, תצוגה, וזום, יחד עם ניהול טבלאות בסיס.</p>
+              <p>ניהול משתמשים, 2FA, תצוגה, זום וטבלאות בסיס.</p>
             </div>
 
             <div className="toolbar-actions">
-              <button type="button" className="secondary-btn" onClick={onBack}>
-                חזרה
-              </button>
-              <button type="button" className="secondary-btn" onClick={onLogout}>
-                התנתק
-              </button>
-              <span className="rows-badge">
-                {user.username} / {user.role}
-              </span>
+              <button type="button" className="secondary-btn" onClick={onBack}>חזרה</button>
+              <button type="button" className="secondary-btn" onClick={onLogout}>התנתק</button>
+              <span className="rows-badge">{user.username} / {user.role}</span>
             </div>
           </section>
 
@@ -513,7 +631,7 @@ export default function SettingsPage({
           />
         )}
 
-        {activeTab === 'tables' && <TablesTab user={user} />}
+        {activeTab === 'tables' && <TablesTab />}
         {activeTab === 'users' && <UsersTab user={user} />}
       </main>
     </div>

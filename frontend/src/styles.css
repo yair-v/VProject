@@ -1714,3 +1714,29 @@ button { font-size: 13px; }
 .pro-table-wrap tbody tr:not(.data-row) td.empty {
   border-bottom: none;
 }
+
+/* Stable 25-row table height: keep the table/card high even when there are only a few rows. */
+.rows-main-layout .table-card {
+  min-height: 1320px;
+}
+
+.rows-main-layout .pro-table-wrap {
+  min-height: 1210px;
+}
+
+.rows-main-layout .pro-table-wrap table {
+  min-height: 1210px;
+}
+
+.rows-main-layout .pro-table-wrap tbody tr.data-row td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme='light'] .rows-main-layout .pro-table-wrap tbody tr.data-row td {
+  border-bottom-color: rgba(15, 23, 42, 0.09);
+}
+
+.rows-main-layout .pro-table-wrap tbody tr:not(.data-row) td,
+.rows-main-layout .pro-table-wrap tbody tr:not(.data-row) td.empty {
+  border-bottom: none !important;
+}

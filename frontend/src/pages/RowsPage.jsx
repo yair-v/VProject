@@ -110,8 +110,8 @@ export default function RowsPage({
       { key: 'position_number', label: 'מספר עמדה' },
       { key: 'serial_number', label: 'מספר סידורי' },
       { key: 'installer_name', label: 'שם מתקין' },
-      { key: 'target_date', label: 'תאריך יעד' },
-      { key: 'completed_date', label: 'תאריך ביצוע' },
+      { key: 'target_date', label: 'תאריך יעד', type: 'date', sortRawKey: 'target_date_ts' },
+      { key: 'completed_date', label: 'תאריך ביצוע', type: 'date', sortRawKey: 'completed_date_ts' },
       ...sortedCustomFields.map((field) => ({
         key: field.field_key,
         label: field.field_label,
@@ -142,46 +142,89 @@ export default function RowsPage({
     });
   }, [rowsData.rows, columnFilters]);
 
-  function parseIsraeliDate(value) {
+  function parseFlexibleDate(value) {
     if (value === null || value === undefined) return null;
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value.getTime();
 
     const text = String(value).trim();
     if (!text) return null;
 
-    // Supports: dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy and optional HH:mm / HH:mm:ss
-    const match = text.match(
-      /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
-    );
-
-    if (!match) return null;
-
-    const day = Number(match[1]);
-    const month = Number(match[2]);
-    let year = Number(match[3]);
-    const hours = Number(match[4] || 0);
-    const minutes = Number(match[5] || 0);
-    const seconds = Number(match[6] || 0);
-
-    if (year < 100) year += 2000;
-
-    const date = new Date(year, month - 1, day, hours, minutes, seconds);
-
-    // Reject invalid dates such as 32/13/2026
-    if (
-      date.getFullYear() !== year ||
-      date.getMonth() !== month - 1 ||
-      date.getDate() !== day ||
-      date.getHours() !== hours ||
-      date.getMinutes() !== minutes ||
-      date.getSeconds() !== seconds
-    ) {
+    // Backend raw date / ISO: yyyy-mm-dd or yyyy-mm-ddTHH:mm:ss...
+    let match = text.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const hours = Number(match[4] || 0);
+      const minutes = Number(match[5] || 0);
+      const seconds = Number(match[6] || 0);
+      const date = new Date(year, month - 1, day, hours, minutes, seconds);
+      if (
+        date.getFullYear() === year &&
+        date.getMonth() === month - 1 &&
+        date.getDate() === day &&
+        date.getHours() === hours &&
+        date.getMinutes() === minutes &&
+        date.getSeconds() === seconds
+      ) {
+        return date.getTime();
+      }
       return null;
     }
 
-    return date.getTime();
+    // Israeli display date: dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy and optional HH:mm / HH:mm:ss
+    match = text.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (match) {
+      const day = Number(match[1]);
+      const month = Number(match[2]);
+      let year = Number(match[3]);
+      const hours = Number(match[4] || 0);
+      const minutes = Number(match[5] || 0);
+      const seconds = Number(match[6] || 0);
+      if (year < 100) year += 2000;
+      const date = new Date(year, month - 1, day, hours, minutes, seconds);
+      if (
+        date.getFullYear() === year &&
+        date.getMonth() === month - 1 &&
+        date.getDate() === day &&
+        date.getHours() === hours &&
+        date.getMinutes() === minutes &&
+        date.getSeconds() === seconds
+      ) {
+        return date.getTime();
+      }
+      return null;
+    }
+
+    // Excel serial date, only when it looks like a real Excel date serial.
+    if (/^\d{5}(\.\d+)?$/.test(text)) {
+      const serial = Number(text);
+      if (Number.isFinite(serial)) {
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const result = new Date(excelEpoch);
+        result.setUTCDate(excelEpoch.getUTCDate() + Math.floor(serial));
+        return result.getTime();
+      }
+    }
+
+    const fallback = new Date(text);
+    return Number.isNaN(fallback.getTime()) ? null : fallback.getTime();
   }
 
-  function compareColumnValues(aVal, bVal) {
+  function isDateColumn(fieldKey) {
+    const column = tableColumns.find((item) => item.key === fieldKey);
+    return column?.type === 'date' || /date|תאריך/i.test(column?.label || fieldKey || '');
+  }
+
+  function getSortValue(row, fieldKey) {
+    const column = tableColumns.find((item) => item.key === fieldKey);
+    if (column?.sortRawKey && row[column.sortRawKey] !== null && row[column.sortRawKey] !== undefined) {
+      return row[column.sortRawKey];
+    }
+    return row[fieldKey] ?? row.custom_data?.[fieldKey] ?? '';
+  }
+
+  function compareColumnValues(aVal, bVal, fieldKey) {
     const aText = aVal === null || aVal === undefined ? '' : String(aVal).trim();
     const bText = bVal === null || bVal === undefined ? '' : String(bVal).trim();
 
@@ -190,10 +233,12 @@ export default function RowsPage({
     if (!aText) return 1;
     if (!bText) return -1;
 
-    const aDate = parseIsraeliDate(aText);
-    const bDate = parseIsraeliDate(bText);
-    if (aDate !== null && bDate !== null) {
-      return aDate - bDate;
+    if (isDateColumn(fieldKey)) {
+      const aDate = typeof aVal === 'number' ? aVal : parseFlexibleDate(aText);
+      const bDate = typeof bVal === 'number' ? bVal : parseFlexibleDate(bText);
+      if (aDate !== null && bDate !== null) return aDate - bDate;
+      if (aDate !== null) return -1;
+      if (bDate !== null) return 1;
     }
 
     const aNumber = Number(aText.replace(/,/g, ''));
@@ -210,9 +255,9 @@ export default function RowsPage({
     if (!sortConfig.key) return rows;
 
     return rows.sort((a, b) => {
-      const aVal = a[sortConfig.key] ?? a.custom_data?.[sortConfig.key] ?? '';
-      const bVal = b[sortConfig.key] ?? b.custom_data?.[sortConfig.key] ?? '';
-      const result = compareColumnValues(aVal, bVal);
+      const aVal = getSortValue(a, sortConfig.key);
+      const bVal = getSortValue(b, sortConfig.key);
+      const result = compareColumnValues(aVal, bVal, sortConfig.key);
 
       if (result === 0) return 0;
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import LookupInput from '../components/LookupInput';
 import CustomFieldInput from '../components/CustomFieldInput';
 import ProjectFieldsManager from '../components/ProjectFieldsManager';
@@ -42,6 +42,9 @@ export default function RowsPage({
   });
   const [customFields, setCustomFields] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [columnFilters, setColumnFilters] = useState({});
+  const [openFilterKey, setOpenFilterKey] = useState(null);
+  const filterPanelRef = useRef(null);
 
   const sortedCustomFields = useMemo(() => {
     return [...customFields].sort(
@@ -86,10 +89,60 @@ export default function RowsPage({
     loadProjectFields();
   }, [selectedProject?.id, refreshKey]);
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!filterPanelRef.current) return;
+      if (!filterPanelRef.current.contains(event.target)) {
+        setOpenFilterKey(null);
+      }
+    }
 
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const tableColumns = useMemo(() => {
+    return [
+      { key: 'customer_name', label: 'לקוח' },
+      { key: 'branch_name', label: 'שם סניף' },
+      { key: 'branch_number', label: 'מספר סניף' },
+      { key: 'position_number', label: 'מספר עמדה' },
+      { key: 'serial_number', label: 'מספר סידורי' },
+      { key: 'installer_name', label: 'שם מתקין' },
+      { key: 'target_date', label: 'תאריך יעד' },
+      { key: 'completed_date', label: 'תאריך ביצוע' },
+      ...sortedCustomFields.map((field) => ({
+        key: field.field_key,
+        label: field.field_label,
+        isCustom: true
+      })),
+      { key: 'status_label', label: 'סטטוס' }
+    ];
+  }, [sortedCustomFields]);
+
+  function getColumnValue(row, key) {
+    const value = row[key] ?? row.custom_data?.[key] ?? '';
+    return value === null || value === undefined ? '' : String(value);
+  }
+
+  const filteredRows = useMemo(() => {
+    return rowsData.rows.filter((row) => {
+      return Object.entries(columnFilters).every(([key, filter]) => {
+        if (!filter) return true;
+        const value = getColumnValue(row, key);
+        const normalizedValue = value.toLowerCase();
+        const searchText = (filter.searchText || '').trim().toLowerCase();
+        const selectedValues = filter.selectedValues || [];
+
+        if (searchText && !normalizedValue.includes(searchText)) return false;
+        if (selectedValues.length && !selectedValues.includes(value)) return false;
+        return true;
+      });
+    });
+  }, [rowsData.rows, columnFilters]);
 
   const sortedRows = useMemo(() => {
-    const rows = [...rowsData.rows];
+    const rows = [...filteredRows];
     if (!sortConfig.key) return rows;
 
     return rows.sort((a, b) => {
@@ -98,7 +151,7 @@ export default function RowsPage({
       const result = String(aVal).localeCompare(String(bVal), 'he', { numeric: true });
       return sortConfig.direction === 'asc' ? result : result * -1;
     });
-  }, [rowsData.rows, sortConfig]);
+  }, [filteredRows, sortConfig]);
 
   function handleSort(fieldKey) {
     setSortConfig((prev) => ({
@@ -107,13 +160,114 @@ export default function RowsPage({
     }));
   }
 
-  function renderSortableHeader(fieldKey, label) {
+  function getUniqueColumnValues(fieldKey) {
+    const values = rowsData.rows.map((row) => getColumnValue(row, fieldKey));
+    return [...new Set(values)].filter(Boolean).sort((a, b) => a.localeCompare(b, 'he', { numeric: true }));
+  }
+
+  function updateColumnFilter(fieldKey, nextFilter) {
+    setColumnFilters((prev) => {
+      const normalizedFilter = {
+        searchText: nextFilter.searchText || '',
+        selectedValues: nextFilter.selectedValues || []
+      };
+      const isEmpty = !normalizedFilter.searchText && !normalizedFilter.selectedValues.length;
+      if (isEmpty) {
+        const { [fieldKey]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [fieldKey]: normalizedFilter };
+    });
+  }
+
+  function clearColumnFilter(fieldKey) {
+    setColumnFilters((prev) => {
+      const { [fieldKey]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }
+
+  function clearAllColumnFilters() {
+    setColumnFilters({});
+    setSearch('');
+    setStatus('');
+  }
+
+  function toggleFilterValue(fieldKey, value) {
+    const current = columnFilters[fieldKey] || { searchText: '', selectedValues: [] };
+    const selectedValues = current.selectedValues || [];
+    const exists = selectedValues.includes(value);
+    updateColumnFilter(fieldKey, {
+      ...current,
+      selectedValues: exists
+        ? selectedValues.filter((item) => item !== value)
+        : [...selectedValues, value]
+    });
+  }
+
+  function renderExcelHeader(fieldKey, label) {
+    const filter = columnFilters[fieldKey] || { searchText: '', selectedValues: [] };
+    const hasFilter = Boolean(filter.searchText || filter.selectedValues.length);
+    const isSorted = sortConfig.key === fieldKey;
+    const uniqueValues = getUniqueColumnValues(fieldKey);
+
     return (
-      <th onClick={() => handleSort(fieldKey)} style={{ cursor: 'pointer' }}>
-        {label}{' '}
-        {sortConfig.key === fieldKey
-          ? (sortConfig.direction === 'asc' ? '▲' : '▼')
-          : '↕'}
+      <th className={`excel-filter-th ${hasFilter ? 'filtered' : ''}`}>
+        <button
+          type="button"
+          className="excel-filter-trigger"
+          onClick={() => setOpenFilterKey((prev) => (prev === fieldKey ? null : fieldKey))}
+          title={`סינון ומיון לפי ${label}`}
+        >
+          <span>{label}</span>
+          <span className="excel-filter-icons">
+            {isSorted ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+            {hasFilter ? '●' : '▾'}
+          </span>
+        </button>
+
+        {openFilterKey === fieldKey && (
+          <div className="excel-filter-panel" ref={filterPanelRef}>
+            <div className="excel-filter-title">{label}</div>
+
+            <div className="excel-filter-sort-row">
+              <button type="button" onClick={() => { setSortConfig({ key: fieldKey, direction: 'asc' }); setOpenFilterKey(null); }}>
+                מיין עולה ▲
+              </button>
+              <button type="button" onClick={() => { setSortConfig({ key: fieldKey, direction: 'desc' }); setOpenFilterKey(null); }}>
+                מיין יורד ▼
+              </button>
+            </div>
+
+            <input
+              className="excel-filter-search"
+              value={filter.searchText}
+              onChange={(e) => updateColumnFilter(fieldKey, { ...filter, searchText: e.target.value })}
+              placeholder="חיפוש בתוך העמודה..."
+              autoFocus
+            />
+
+            <div className="excel-filter-values">
+              {uniqueValues.length ? uniqueValues.map((value) => (
+                <label key={value} className="excel-filter-check">
+                  <input
+                    type="checkbox"
+                    checked={filter.selectedValues.includes(value)}
+                    onChange={() => toggleFilterValue(fieldKey, value)}
+                  />
+                  <span>{value}</span>
+                </label>
+              )) : (
+                <div className="excel-filter-empty">אין ערכים לבחירה</div>
+              )}
+            </div>
+
+            <div className="excel-filter-actions">
+              <button type="button" onClick={() => clearColumnFilter(fieldKey)}>נקה עמודה</button>
+              <button type="button" className="primary-mini" onClick={() => setOpenFilterKey(null)}>סגור</button>
+            </div>
+          </div>
+        )}
       </th>
     );
   }
@@ -231,7 +385,7 @@ export default function RowsPage({
 
           <div className="glass-card stat-box compact">
             <span>שורות מוצגות</span>
-            <strong>{rowsData.rows.length}</strong>
+            <strong>{sortedRows.length}</strong>
           </div>
 
           <ProjectClock
@@ -438,7 +592,16 @@ export default function RowsPage({
             </div>
 
             <div className="table-meta">
-              <strong>{rowsData.total} שורות</strong>
+              <strong>{sortedRows.length} מתוך {rowsData.total} שורות</strong>
+
+              <button
+                type="button"
+                className="secondary-btn compact-btn"
+                onClick={clearAllColumnFilters}
+                disabled={!Object.keys(columnFilters).length && !search && !status}
+              >
+                נקה סינונים
+              </button>
 
               <div className="pagination">
                 <button
@@ -465,20 +628,7 @@ export default function RowsPage({
               <table>
                 <thead>
                   <tr>
-                    <th onClick={() => handleSort('customer_name')}>לקוח {sortConfig.key === 'customer_name' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</th>
-                    <th onClick={() => handleSort('branch_name')}>שם סניף {sortConfig.key === 'branch_name' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</th>
-                    <th onClick={() => handleSort('branch_number')}>מספר סניף {sortConfig.key === 'branch_number' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</th>
-                    <th onClick={() => handleSort('position_number')}>מספר עמדה {sortConfig.key === 'position_number' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</th>
-                    <th onClick={() => handleSort('serial_number')}>מספר סידורי {sortConfig.key === 'serial_number' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</th>
-                    {renderSortableHeader('installer_name', 'שם מתקין')}
-                    {renderSortableHeader('target_date', 'תאריך יעד')}
-                    {renderSortableHeader('completed_date', 'תאריך ביצוע')}
-                    {sortedCustomFields.map((field) => (
-                      <th key={field.id} onClick={() => handleSort(field.field_key)} style={{ cursor: 'pointer' }}>
-                        {field.field_label} {sortConfig.key === field.field_key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
-                      </th>
-                    ))}
-                    {renderSortableHeader('status_label', 'סטטוס')}
+                    {tableColumns.map((column) => renderExcelHeader(column.key, column.label))}
                     <th>פעולות</th>
                   </tr>
                 </thead>
@@ -490,7 +640,7 @@ export default function RowsPage({
                         טוען...
                       </td>
                     </tr>
-                  ) : rowsData.rows.length ? (
+                  ) : sortedRows.length ? (
                     sortedRows.map((row) => (
                       <tr key={row.id}>
                         <td>{row.customer_name}</td>

@@ -1421,3 +1421,136 @@ tbody tr:hover {
   color: var(--muted);
   font-size: 12px;
 }
+/* Excel-like table filters */
+.excel-filter-th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  overflow: visible;
+  min-width: 145px;
+}
+
+.excel-filter-th.filtered .excel-filter-trigger {
+  color: #91f0c0;
+}
+
+.excel-filter-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+  text-align: right;
+}
+
+.excel-filter-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+.excel-filter-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 8px;
+  width: 280px;
+  max-width: 85vw;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(11, 20, 32, 0.98);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+  z-index: 50;
+  color: #dce8fb;
+}
+
+:root[data-theme='light'] .excel-filter-panel {
+  background: rgba(248, 251, 255, 0.98);
+  color: var(--text);
+  border-color: rgba(10, 24, 48, 0.12);
+  box-shadow: 0 24px 70px rgba(30, 60, 100, 0.18);
+}
+
+.excel-filter-title {
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.excel-filter-sort-row,
+.excel-filter-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.excel-filter-sort-row button,
+.excel-filter-actions button,
+.primary-mini {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  padding: 9px 10px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.primary-mini {
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong)) !important;
+  color: #fff !important;
+  border: 0 !important;
+}
+
+.excel-filter-search {
+  width: 100%;
+  margin: 10px 0;
+}
+
+.excel-filter-values {
+  max-height: 220px;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  padding: 4px 2px 8px;
+}
+
+.excel-filter-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.035);
+  font-weight: 600;
+}
+
+.excel-filter-check:hover {
+  background: rgba(77, 163, 255, 0.14);
+}
+
+.excel-filter-check input {
+  width: auto;
+  accent-color: var(--primary);
+}
+
+.excel-filter-empty {
+  padding: 14px;
+  text-align: center;
+  opacity: 0.72;
+}
+
+.compact-btn {
+  padding: 8px 12px;
+  min-height: auto;
+}

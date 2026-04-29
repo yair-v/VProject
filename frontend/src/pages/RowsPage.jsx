@@ -110,8 +110,8 @@ export default function RowsPage({
       { key: 'position_number', label: 'מספר עמדה' },
       { key: 'serial_number', label: 'מספר סידורי' },
       { key: 'installer_name', label: 'שם מתקין' },
-      { key: 'target_date', label: 'תאריך יעד', type: 'date', sortRawKey: 'target_date_ts' },
-      { key: 'completed_date', label: 'תאריך ביצוע', type: 'date', sortRawKey: 'completed_date_ts' },
+      { key: 'target_date', label: 'תאריך יעד', type: 'date' },
+      { key: 'completed_date', label: 'תאריך ביצוע', type: 'date' },
       ...sortedCustomFields.map((field) => ({
         key: field.field_key,
         label: field.field_label,
@@ -149,8 +149,17 @@ export default function RowsPage({
     const text = String(value).trim();
     if (!text) return null;
 
-    // Backend raw date / ISO: yyyy-mm-dd or yyyy-mm-ddTHH:mm:ss...
-    let match = text.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    // Excel serial date.
+    if (/^\d{5}(\.\d+)?$/.test(text)) {
+      const serial = Number(text);
+      if (Number.isFinite(serial)) {
+        const excelEpoch = Date.UTC(1899, 11, 30);
+        return excelEpoch + Math.floor(serial) * 24 * 60 * 60 * 1000;
+      }
+    }
+
+    // Database / ISO date: yyyy-mm-dd, yyyy/mm/dd, yyyy.mm.dd, optional time.
+    let match = text.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
     if (match) {
       const year = Number(match[1]);
       const month = Number(match[2]);
@@ -159,20 +168,13 @@ export default function RowsPage({
       const minutes = Number(match[5] || 0);
       const seconds = Number(match[6] || 0);
       const date = new Date(year, month - 1, day, hours, minutes, seconds);
-      if (
-        date.getFullYear() === year &&
-        date.getMonth() === month - 1 &&
-        date.getDate() === day &&
-        date.getHours() === hours &&
-        date.getMinutes() === minutes &&
-        date.getSeconds() === seconds
-      ) {
+      if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
         return date.getTime();
       }
       return null;
     }
 
-    // Israeli display date: dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy and optional HH:mm / HH:mm:ss
+    // Israeli date is ALWAYS day/month/year: dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy, optional time.
     match = text.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
     if (match) {
       const day = Number(match[1]);
@@ -183,32 +185,13 @@ export default function RowsPage({
       const seconds = Number(match[6] || 0);
       if (year < 100) year += 2000;
       const date = new Date(year, month - 1, day, hours, minutes, seconds);
-      if (
-        date.getFullYear() === year &&
-        date.getMonth() === month - 1 &&
-        date.getDate() === day &&
-        date.getHours() === hours &&
-        date.getMinutes() === minutes &&
-        date.getSeconds() === seconds
-      ) {
+      if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
         return date.getTime();
       }
       return null;
     }
 
-    // Excel serial date, only when it looks like a real Excel date serial.
-    if (/^\d{5}(\.\d+)?$/.test(text)) {
-      const serial = Number(text);
-      if (Number.isFinite(serial)) {
-        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-        const result = new Date(excelEpoch);
-        result.setUTCDate(excelEpoch.getUTCDate() + Math.floor(serial));
-        return result.getTime();
-      }
-    }
-
-    const fallback = new Date(text);
-    return Number.isNaN(fallback.getTime()) ? null : fallback.getTime();
+    return null;
   }
 
   function isDateColumn(fieldKey) {
@@ -265,7 +248,7 @@ export default function RowsPage({
       const bEmpty = !String(bVal ?? '').trim();
       if (aEmpty || bEmpty) return result;
 
-      return sortConfig.direction === 'asc' ? result : result * -1;
+      return sortConfig.direction === 'asc' ? result : -result;
     });
   }, [filteredRows, sortConfig]);
 

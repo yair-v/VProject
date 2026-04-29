@@ -19,53 +19,51 @@ function excelSerialToDate(serial) {
 export function toDbDate(value) {
   if (value === null || value === undefined || value === '') return null;
 
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    const yyyy = value.getUTCFullYear();
-    const mm = String(value.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(value.getUTCDate()).padStart(2, '0');
+  function buildDate(year, month, day) {
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (
+      date.getUTCFullYear() !== year ||
+      date.getUTCMonth() !== month - 1 ||
+      date.getUTCDate() !== day
+    ) {
+      return null;
+    }
+    const yyyy = String(year).padStart(4, '0');
+    const mm = String(month).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return buildDate(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate());
   }
 
   if (typeof value === 'number' && Number.isFinite(value)) {
     const asDate = excelSerialToDate(value);
-    const yyyy = asDate.getUTCFullYear();
-    const mm = String(asDate.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(asDate.getUTCDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return buildDate(asDate.getUTCFullYear(), asDate.getUTCMonth() + 1, asDate.getUTCDate());
   }
 
   const str = String(value).trim();
   if (!str) return null;
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  let match = str.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+  if (match) {
+    return buildDate(Number(match[1]), Number(match[2]), Number(match[3]));
+  }
 
   if (/^\d{5}(\.\d+)?$/.test(str)) {
     const asDate = excelSerialToDate(Number(str));
-    const yyyy = asDate.getUTCFullYear();
-    const mm = String(asDate.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(asDate.getUTCDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return buildDate(asDate.getUTCFullYear(), asDate.getUTCMonth() + 1, asDate.getUTCDate());
   }
 
-  let match = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  // Israeli format only: dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy.
+  match = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/);
   if (match) {
-    const [, dd, mm, yyyy] = match;
-    return `${yyyy}-${mm}-${dd}`;
-  }
-
-  match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (match) {
-    let [, mm, dd, yy] = match;
-    if (yy.length === 2) yy = `20${yy}`;
-    return `${yy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-  }
-
-  const asDate = new Date(str);
-  if (!Number.isNaN(asDate.getTime())) {
-    const yyyy = asDate.getUTCFullYear();
-    const mm = String(asDate.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(asDate.getUTCDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    let year = Number(match[3]);
+    if (year < 100) year += 2000;
+    return buildDate(year, month, day);
   }
 
   return null;

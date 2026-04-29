@@ -1740,3 +1740,47 @@ button { font-size: 13px; }
 .rows-main-layout .pro-table-wrap tbody tr:not(.data-row) td.empty {
   border-bottom: none !important;
 }
+
+/* FINAL FIX - rows table stable height + clean separators */
+.rows-main-layout .table-card {
+  min-height: 1180px !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.rows-main-layout .table-card .table-wrap.pro-table-wrap {
+  height: 1048px !important; /* header + about 25 compact rows */
+  min-height: 1048px !important;
+  max-height: 1048px !important;
+  overflow: auto !important;
+  display: block;
+}
+
+.rows-main-layout .table-card .table-wrap.pro-table-wrap table {
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+.rows-main-layout .table-card .table-wrap.pro-table-wrap th,
+.rows-main-layout .table-card .table-wrap.pro-table-wrap td {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  line-height: 22px !important;
+}
+
+.rows-main-layout .table-card .table-wrap.pro-table-wrap tbody td {
+  border-bottom: none !important;
+}
+
+.rows-main-layout .table-card .table-wrap.pro-table-wrap tbody tr.data-row td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+:root[data-theme='light'] .rows-main-layout .table-card .table-wrap.pro-table-wrap tbody tr.data-row td {
+  border-bottom-color: rgba(15, 23, 42, 0.10) !important;
+}
+
+.rows-main-layout .table-card .table-wrap.pro-table-wrap tbody tr:not(.data-row) td,
+.rows-main-layout .table-card .table-wrap.pro-table-wrap tbody tr:not(.data-row) td.empty {
+  border-bottom: none !important;
+}

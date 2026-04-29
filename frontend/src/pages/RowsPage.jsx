@@ -142,6 +142,69 @@ export default function RowsPage({
     });
   }, [rowsData.rows, columnFilters]);
 
+  function parseIsraeliDate(value) {
+    if (value === null || value === undefined) return null;
+
+    const text = String(value).trim();
+    if (!text) return null;
+
+    // Supports: dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy and optional HH:mm / HH:mm:ss
+    const match = text.match(
+      /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+    );
+
+    if (!match) return null;
+
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    let year = Number(match[3]);
+    const hours = Number(match[4] || 0);
+    const minutes = Number(match[5] || 0);
+    const seconds = Number(match[6] || 0);
+
+    if (year < 100) year += 2000;
+
+    const date = new Date(year, month - 1, day, hours, minutes, seconds);
+
+    // Reject invalid dates such as 32/13/2026
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day ||
+      date.getHours() !== hours ||
+      date.getMinutes() !== minutes ||
+      date.getSeconds() !== seconds
+    ) {
+      return null;
+    }
+
+    return date.getTime();
+  }
+
+  function compareColumnValues(aVal, bVal) {
+    const aText = aVal === null || aVal === undefined ? '' : String(aVal).trim();
+    const bText = bVal === null || bVal === undefined ? '' : String(bVal).trim();
+
+    // Empty values always stay at the bottom, both in ascending and descending sorting.
+    if (!aText && !bText) return 0;
+    if (!aText) return 1;
+    if (!bText) return -1;
+
+    const aDate = parseIsraeliDate(aText);
+    const bDate = parseIsraeliDate(bText);
+    if (aDate !== null && bDate !== null) {
+      return aDate - bDate;
+    }
+
+    const aNumber = Number(aText.replace(/,/g, ''));
+    const bNumber = Number(bText.replace(/,/g, ''));
+    if (Number.isFinite(aNumber) && Number.isFinite(bNumber)) {
+      return aNumber - bNumber;
+    }
+
+    return aText.localeCompare(bText, 'he', { numeric: true, sensitivity: 'base' });
+  }
+
   const sortedRows = useMemo(() => {
     const rows = [...filteredRows];
     if (!sortConfig.key) return rows;
@@ -149,7 +212,14 @@ export default function RowsPage({
     return rows.sort((a, b) => {
       const aVal = a[sortConfig.key] ?? a.custom_data?.[sortConfig.key] ?? '';
       const bVal = b[sortConfig.key] ?? b.custom_data?.[sortConfig.key] ?? '';
-      const result = String(aVal).localeCompare(String(bVal), 'he', { numeric: true });
+      const result = compareColumnValues(aVal, bVal);
+
+      if (result === 0) return 0;
+
+      const aEmpty = !String(aVal ?? '').trim();
+      const bEmpty = !String(bVal ?? '').trim();
+      if (aEmpty || bEmpty) return result;
+
       return sortConfig.direction === 'asc' ? result : result * -1;
     });
   }, [filteredRows, sortConfig]);

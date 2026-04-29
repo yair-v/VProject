@@ -44,6 +44,7 @@ export default function RowsPage({
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [columnFilters, setColumnFilters] = useState({});
   const [openFilterKey, setOpenFilterKey] = useState(null);
+  const [showRowEditor, setShowRowEditor] = useState(false);
   const filterPanelRef = useRef(null);
 
   const sortedCustomFields = useMemo(() => {
@@ -372,33 +373,49 @@ export default function RowsPage({
           <AppBrand />
         </section>
 
-        <section className="project-summary-grid">
-          <div className="glass-card stat-box compact">
-            <span>סה״כ פרויקטים</span>
-            <strong>{totalProjects}</strong>
+        <section className="project-summary-grid rows-summary-compact">
+          <div className="glass-card rows-summary-card">
+            <ProjectClock
+              total={projectSummary.rows_count}
+              completed={projectSummary.completed_rows}
+              pending={projectSummary.pending_rows}
+              size={116}
+              stroke={11}
+              title="גרף שעון"
+            />
+
+            <div className="rows-summary-numbers">
+              <div>
+                <span>סה״כ פרויקטים</span>
+                <strong>{totalProjects}</strong>
+              </div>
+              <div>
+                <span>שורות בפרויקט</span>
+                <strong>{projectSummary.rows_count || 0}</strong>
+              </div>
+              <div>
+                <span>שורות מוצגות</span>
+                <strong>{sortedRows.length}</strong>
+              </div>
+            </div>
           </div>
 
-          <div className="glass-card stat-box compact">
-            <span>שורות בפרויקט</span>
-            <strong>{projectSummary.rows_count || 0}</strong>
-          </div>
-
-          <div className="glass-card stat-box compact">
-            <span>שורות מוצגות</span>
-            <strong>{sortedRows.length}</strong>
-          </div>
-
-          <ProjectClock
-            total={projectSummary.rows_count}
-            completed={projectSummary.completed_rows}
-            pending={projectSummary.pending_rows}
-            size={132}
-            stroke={12}
-            title="גרף שעון"
-          />
+          <button
+            type="button"
+            className="glass-card add-row-tile"
+            onClick={() => {
+              resetForm();
+              setShowRowEditor((prev) => !prev);
+            }}
+          >
+            <span className="add-row-plus">+</span>
+            <strong>{showRowEditor && !editingRowId ? 'סגור הוספת שורה' : 'הוספת שורה'}</strong>
+            <small>פתח טופס הוספת שורה חדשה לפרויקט</small>
+          </button>
         </section>
 
-        <section className="content-grid">
+        <section className={`content-grid rows-main-layout ${showRowEditor || editingRowId ? 'editor-open' : ''}`}>
+          {(showRowEditor || editingRowId) && (
           <section className="card form-card glass-card">
             <div className="card-title-row">
               <div>
@@ -565,6 +582,7 @@ export default function RowsPage({
 
             {error && <div className="error-box">{error}</div>}
           </section>
+          )}
 
           <section className="card table-card glass-card">
             <div className="card-title-row table-top-pro">
@@ -668,7 +686,7 @@ export default function RowsPage({
                           <div className="row-actions">
                             <button
                               type="button"
-                              onClick={() => startEdit(row)}
+                              onClick={() => { setShowRowEditor(true); startEdit(row); }}
                             >
                               ערוך
                             </button>

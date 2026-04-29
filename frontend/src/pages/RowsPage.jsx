@@ -660,7 +660,7 @@ export default function RowsPage({
                     </tr>
                   ) : sortedRows.length ? (
                     sortedRows.map((row) => (
-                      <tr key={row.id}>
+                      <tr key={row.id} className="data-row">
                         <td>{row.customer_name}</td>
                         <td>{row.branch_name}</td>
                         <td>{row.branch_number}</td>

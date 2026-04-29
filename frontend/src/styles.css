@@ -1693,3 +1693,24 @@ button { font-size: 13px; }
     grid-template-columns: 1fr;
   }
 }
+
+/* Rows table: keep table area at least 25 rows high, but do not draw separators in empty space */
+.rows-main-layout .pro-table-wrap {
+  min-height: 1144px; /* header + about 25 compact data rows */
+}
+
+.pro-table-wrap tbody td {
+  border-bottom: none;
+}
+
+.pro-table-wrap tbody tr.data-row:not(:last-child) td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme='light'] .pro-table-wrap tbody tr.data-row:not(:last-child) td {
+  border-bottom-color: rgba(15, 23, 42, 0.09);
+}
+
+.pro-table-wrap tbody tr:not(.data-row) td.empty {
+  border-bottom: none;
+}

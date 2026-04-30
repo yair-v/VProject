@@ -45,6 +45,8 @@ export default function RowsPage({
   const [columnFilters, setColumnFilters] = useState({});
   const [openFilterKey, setOpenFilterKey] = useState(null);
   const [showRowEditor, setShowRowEditor] = useState(false);
+  const [columnOrder, setColumnOrder] = useState([]);
+  const [draggedColumnKey, setDraggedColumnKey] = useState(null);
   const filterPanelRef = useRef(null);
 
   const sortedCustomFields = useMemo(() => {
@@ -104,6 +106,7 @@ export default function RowsPage({
 
   const tableColumns = useMemo(() => {
     return [
+      { key: '__actions', label: 'פעולות', type: 'actions', noFilter: true },
       { key: 'customer_name', label: 'לקוח' },
       { key: 'branch_name', label: 'שם סניף' },
       { key: 'branch_number', label: 'מספר סניף' },
@@ -120,6 +123,61 @@ export default function RowsPage({
       { key: 'status_label', label: 'סטטוס' }
     ];
   }, [sortedCustomFields]);
+
+  useEffect(() => {
+    if (!selectedProject?.id) {
+      setColumnOrder([]);
+      return;
+    }
+
+    const storageKey = `vproject.columnOrder.${selectedProject.id}`;
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      setColumnOrder(Array.isArray(saved) ? saved : []);
+    } catch {
+      setColumnOrder([]);
+    }
+  }, [selectedProject?.id]);
+
+  const orderedColumns = useMemo(() => {
+    const keys = tableColumns.map((column) => column.key);
+    const savedKeys = columnOrder.filter((key) => keys.includes(key));
+    const missingKeys = keys.filter((key) => !savedKeys.includes(key));
+    const finalKeys = savedKeys.length ? [...savedKeys, ...missingKeys] : keys;
+
+    return finalKeys
+      .map((key) => tableColumns.find((column) => column.key === key))
+      .filter(Boolean);
+  }, [tableColumns, columnOrder]);
+
+  function saveColumnOrder(nextKeys) {
+    setColumnOrder(nextKeys);
+    if (!selectedProject?.id) return;
+
+    try {
+      localStorage.setItem(`vproject.columnOrder.${selectedProject.id}`, JSON.stringify(nextKeys));
+    } catch {
+      // localStorage can be blocked. The order will still work until page refresh.
+    }
+  }
+
+  function resetColumnOrder() {
+    saveColumnOrder(tableColumns.map((column) => column.key));
+  }
+
+  function moveColumn(fromKey, toKey) {
+    if (!fromKey || !toKey || fromKey === toKey) return;
+
+    const currentKeys = orderedColumns.map((column) => column.key);
+    const fromIndex = currentKeys.indexOf(fromKey);
+    const toIndex = currentKeys.indexOf(toKey);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    const nextKeys = [...currentKeys];
+    const [moved] = nextKeys.splice(fromIndex, 1);
+    nextKeys.splice(toIndex, 0, moved);
+    saveColumnOrder(nextKeys);
+  }
 
   function getColumnValue(row, key) {
     const value = row[key] ?? row.custom_data?.[key] ?? '';
@@ -304,68 +362,100 @@ export default function RowsPage({
     });
   }
 
-  function renderExcelHeader(fieldKey, label) {
+  function renderExcelHeader(column) {
+    const fieldKey = column.key;
+    const label = column.label;
     const filter = columnFilters[fieldKey] || { searchText: '', selectedValues: [] };
     const hasFilter = Boolean(filter.searchText || filter.selectedValues.length);
     const isSorted = sortConfig.key === fieldKey;
-    const uniqueValues = getUniqueColumnValues(fieldKey);
+    const uniqueValues = column.noFilter ? [] : getUniqueColumnValues(fieldKey);
 
     return (
-      <th className={`excel-filter-th ${hasFilter ? 'filtered' : ''}`}>
-        <button
-          type="button"
-          className="excel-filter-trigger"
-          onClick={() => setOpenFilterKey((prev) => (prev === fieldKey ? null : fieldKey))}
-          title={`סינון ומיון לפי ${label}`}
-        >
-          <span>{label}</span>
-          <span className="excel-filter-icons">
-            {isSorted ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
-            {hasFilter ? '●' : '▾'}
-          </span>
-        </button>
-
-        {openFilterKey === fieldKey && (
-          <div className="excel-filter-panel" ref={filterPanelRef}>
-            <div className="excel-filter-title">{label}</div>
-
-            <div className="excel-filter-sort-row">
-              <button type="button" onClick={() => { setSortConfig({ key: fieldKey, direction: 'asc' }); setOpenFilterKey(null); }}>
-                מיין עולה ▲
-              </button>
-              <button type="button" onClick={() => { setSortConfig({ key: fieldKey, direction: 'desc' }); setOpenFilterKey(null); }}>
-                מיין יורד ▼
-              </button>
-            </div>
-
-            <input
-              className="excel-filter-search"
-              value={filter.searchText}
-              onChange={(e) => updateColumnFilter(fieldKey, { ...filter, searchText: e.target.value })}
-              placeholder="חיפוש בתוך העמודה..."
-              autoFocus
-            />
-
-            <div className="excel-filter-values">
-              {uniqueValues.length ? uniqueValues.map((value) => (
-                <label key={value} className="excel-filter-check">
-                  <input
-                    type="checkbox"
-                    checked={filter.selectedValues.includes(value)}
-                    onChange={() => toggleFilterValue(fieldKey, value)}
-                  />
-                  <span>{value}</span>
-                </label>
-              )) : (
-                <div className="excel-filter-empty">אין ערכים לבחירה</div>
-              )}
-            </div>
-
-            <div className="excel-filter-actions">
-              <button type="button" onClick={() => clearColumnFilter(fieldKey)}>נקה עמודה</button>
-              <button type="button" className="primary-mini" onClick={() => setOpenFilterKey(null)}>סגור</button>
-            </div>
+      <th
+        key={fieldKey}
+        className={`excel-filter-th draggable-column-th ${hasFilter ? 'filtered' : ''} ${draggedColumnKey === fieldKey ? 'dragging' : ''}`}
+        draggable
+        onDragStart={(e) => {
+          setDraggedColumnKey(fieldKey);
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', fieldKey);
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          const fromKey = e.dataTransfer.getData('text/plain') || draggedColumnKey;
+          moveColumn(fromKey, fieldKey);
+          setDraggedColumnKey(null);
+        }}
+        onDragEnd={() => setDraggedColumnKey(null)}
+        title="אפשר לגרור את הכותרת כדי לשנות סדר עמודות"
+      >
+        {column.noFilter ? (
+          <div className="excel-filter-trigger column-drag-handle">
+            <span>{label}</span>
+            <span className="excel-filter-icons">↔</span>
           </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="excel-filter-trigger column-drag-handle"
+              onClick={() => setOpenFilterKey((prev) => (prev === fieldKey ? null : fieldKey))}
+              title={`סינון, מיון וגרירה לפי ${label}`}
+            >
+              <span>{label}</span>
+              <span className="excel-filter-icons">
+                {isSorted ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                {hasFilter ? '●' : '▾'}
+              </span>
+            </button>
+
+            {openFilterKey === fieldKey && (
+              <div className="excel-filter-panel" ref={filterPanelRef} draggable={false}>
+                <div className="excel-filter-title">{label}</div>
+
+                <div className="excel-filter-sort-row">
+                  <button type="button" onClick={() => { setSortConfig({ key: fieldKey, direction: 'asc' }); setOpenFilterKey(null); }}>
+                    מיין עולה ▲
+                  </button>
+                  <button type="button" onClick={() => { setSortConfig({ key: fieldKey, direction: 'desc' }); setOpenFilterKey(null); }}>
+                    מיין יורד ▼
+                  </button>
+                </div>
+
+                <input
+                  className="excel-filter-search"
+                  value={filter.searchText}
+                  onChange={(e) => updateColumnFilter(fieldKey, { ...filter, searchText: e.target.value })}
+                  placeholder="חיפוש בתוך העמודה..."
+                  autoFocus
+                />
+
+                <div className="excel-filter-values">
+                  {uniqueValues.length ? uniqueValues.map((value) => (
+                    <label key={value} className="excel-filter-check">
+                      <input
+                        type="checkbox"
+                        checked={filter.selectedValues.includes(value)}
+                        onChange={() => toggleFilterValue(fieldKey, value)}
+                      />
+                      <span>{value}</span>
+                    </label>
+                  )) : (
+                    <div className="excel-filter-empty">אין ערכים לבחירה</div>
+                  )}
+                </div>
+
+                <div className="excel-filter-actions">
+                  <button type="button" onClick={() => clearColumnFilter(fieldKey)}>נקה עמודה</button>
+                  <button type="button" className="primary-mini" onClick={() => setOpenFilterKey(null)}>סגור</button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </th>
     );
@@ -385,6 +475,53 @@ export default function RowsPage({
     if (!selectedProject?.id) return;
     const result = await api.getProjectFields(selectedProject.id);
     setCustomFields(result.customFields || []);
+  }
+
+  function renderTableCell(row, column) {
+    if (column.type === 'actions') {
+      return (
+        <td key={`${row.id}-${column.key}`}>
+          <div className="row-actions">
+            <button
+              type="button"
+              onClick={() => { setShowRowEditor(true); startEdit(row); }}
+            >
+              ערוך
+            </button>
+
+            {user.role === 'admin' && (
+              <button
+                type="button"
+                className="danger"
+                onClick={() => deleteRow(row.id)}
+              >
+                מחק
+              </button>
+            )}
+          </div>
+        </td>
+      );
+    }
+
+    if (column.key === 'status_label') {
+      return (
+        <td key={`${row.id}-${column.key}`}>
+          <span className={`status ${row.status}`}>
+            {row.status_label}
+          </span>
+        </td>
+      );
+    }
+
+    const value = column.isCustom
+      ? row.custom_data?.[column.key] ?? ''
+      : row[column.key] ?? '';
+
+    return (
+      <td key={`${row.id}-${column.key}`} className={column.key === 'serial_number' ? 'serial-cell' : ''}>
+        {value}
+      </td>
+    );
   }
 
   return (
@@ -719,6 +856,14 @@ export default function RowsPage({
                 נקה סינונים
               </button>
 
+              <button
+                type="button"
+                className="secondary-btn compact-btn"
+                onClick={resetColumnOrder}
+              >
+                איפוס עמודות
+              </button>
+
               <div className="pagination">
                 <button
                   type="button"
@@ -744,67 +889,26 @@ export default function RowsPage({
               <table>
                 <thead>
                   <tr>
-                    {tableColumns.map((column) => renderExcelHeader(column.key, column.label))}
-                    <th>פעולות</th>
+                    {orderedColumns.map((column) => renderExcelHeader(column))}
                   </tr>
                 </thead>
 
                 <tbody>
                   {loadingRows ? (
                     <tr>
-                      <td colSpan={10 + sortedCustomFields.length} className="empty">
+                      <td colSpan={orderedColumns.length} className="empty">
                         טוען...
                       </td>
                     </tr>
                   ) : sortedRows.length ? (
                     sortedRows.map((row) => (
                       <tr key={row.id} className="data-row">
-                        <td>{row.customer_name}</td>
-                        <td>{row.branch_name}</td>
-                        <td>{row.branch_number}</td>
-                        <td>{row.position_number}</td>
-                        <td className="serial-cell">{row.serial_number}</td>
-                        <td>{row.installer_name}</td>
-                        <td>{row.target_date}</td>
-                        <td>{row.completed_date}</td>
-
-                        {sortedCustomFields.map((field) => (
-                          <td key={field.id}>
-                            {row.custom_data?.[field.field_key] ?? ''}
-                          </td>
-                        ))}
-
-                        <td>
-                          <span className={`status ${row.status}`}>
-                            {row.status_label}
-                          </span>
-                        </td>
-
-                        <td>
-                          <div className="row-actions">
-                            <button
-                              type="button"
-                              onClick={() => { setShowRowEditor(true); startEdit(row); }}
-                            >
-                              ערוך
-                            </button>
-
-                            {user.role === 'admin' && (
-                              <button
-                                type="button"
-                                className="danger"
-                                onClick={() => deleteRow(row.id)}
-                              >
-                                מחק
-                              </button>
-                            )}
-                          </div>
-                        </td>
+                        {orderedColumns.map((column) => renderTableCell(row, column))}
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={10 + sortedCustomFields.length} className="empty">
+                      <td colSpan={orderedColumns.length} className="empty">
                         אין נתונים להצגה
                       </td>
                     </tr>

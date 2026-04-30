@@ -75,7 +75,7 @@ export default function App() {
     rows: [],
     total: 0,
     page: 1,
-    pageSize: 100
+    pageSize: 10000
   });
 
   const [loadingProjects, setLoadingProjects] = useState(false);
@@ -221,7 +221,7 @@ export default function App() {
     localStorage.removeItem('user');
     setUser(null);
     setProjects([]);
-    setRowsData({ rows: [], total: 0, page: 1, pageSize: 100 });
+    setRowsData({ rows: [], total: 0, page: 1, pageSize: 10000 });
     window.location.hash = '/login';
   }
 

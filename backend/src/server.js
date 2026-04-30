@@ -897,7 +897,7 @@ app.delete('/api/installers/:id', requireRole(['admin', 'manager']), async (req,
 app.get('/api/projects/:projectId/rows', async (req, res) => {
   const { projectId } = req.params;
   const page = Number(req.query.page || 1);
-  const pageSize = Math.min(Number(req.query.pageSize || 100), 250);
+  const pageSize = Math.min(Number(req.query.pageSize || 10000), 10000);
   const offset = (page - 1) * pageSize;
   const search = (req.query.search || '').toString().trim();
   const status = (req.query.status || '').toString().trim();

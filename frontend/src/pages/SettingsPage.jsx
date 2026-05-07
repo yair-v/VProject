@@ -390,14 +390,23 @@ function UsersTab({ user }) {
 function TablesTab() {
   const [customers, setCustomers] = useState([]);
   const [installers, setInstallers] = useState([]);
+  const [statuses, setStatuses] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [installerName, setInstallerName] = useState('');
+  const [statusName, setStatusName] = useState('');
+  const [statusColor, setStatusColor] = useState('#64748b');
   const [error, setError] = useState('');
 
   async function loadData() {
     try {
-      setCustomers(await api.getCustomers(''));
-      setInstallers(await api.getInstallers(''));
+      const [customersData, installersData, statusesData] = await Promise.all([
+        api.getCustomers(''),
+        api.getInstallers(''),
+        api.getStatuses()
+      ]);
+      setCustomers(customersData);
+      setInstallers(installersData);
+      setStatuses(statusesData);
       setError('');
     } catch (err) {
       setError(err.message);
@@ -422,6 +431,18 @@ function TablesTab() {
     try {
       await api.createInstaller(installerName);
       setInstallerName('');
+      loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function addStatus() {
+    if (!statusName.trim()) return;
+    try {
+      await api.createStatus({ label: statusName.trim(), color: statusColor });
+      setStatusName('');
+      setStatusColor('#64748b');
       loadData();
     } catch (err) {
       setError(err.message);
@@ -474,8 +495,124 @@ function TablesTab() {
     }
   }
 
+  async function editStatus(item) {
+    const label = window.prompt('שם סטטוס חדש', item.label);
+    if (!label?.trim()) return;
+
+    try {
+      await api.updateStatus(item.id, {
+        label: label.trim(),
+        color: item.color || '#64748b',
+        sort_order: item.sort_order || 0
+      });
+      loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function changeStatusColor(item, color) {
+    try {
+      await api.updateStatus(item.id, {
+        label: item.label,
+        color,
+        sort_order: item.sort_order || 0
+      });
+      loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function removeStatus(item) {
+    if (item.is_system) {
+      window.alert('לא ניתן למחוק סטטוס מערכת');
+      return;
+    }
+
+    if (!window.confirm(`למחוק את הסטטוס ${item.label}?`)) return;
+
+    try {
+      await api.deleteStatus(item.id);
+      loadData();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <section className="settings-tables-grid">
+      <section className="card glass-card settings-panel">
+        <div className="card-title-row">
+          <div>
+            <div className="section-chip">Tables</div>
+            <h3>טבלת סטטוסים</h3>
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <input
+            value={statusName}
+            onChange={(e) => setStatusName(e.target.value)}
+            placeholder="סטטוס חדש"
+          />
+          <input
+            type="color"
+            className="color-picker-input"
+            value={statusColor}
+            onChange={(e) => setStatusColor(e.target.value)}
+            title="צבע סטטוס"
+          />
+          <button type="button" className="primary-btn" onClick={addStatus}>
+            הוסף סטטוס
+          </button>
+        </div>
+
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>צבע</th>
+                <th>שם</th>
+                <th>פעולות</th>
+              </tr>
+            </thead>
+            <tbody>
+              {statuses.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <input
+                      type="color"
+                      className="color-picker-input"
+                      value={item.color || '#64748b'}
+                      onChange={(e) => changeStatusColor(item, e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <span className="status-management-pill" style={{ borderColor: item.color || '#64748b' }}>
+                      {item.label}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="row-actions">
+                      <button type="button" onClick={() => editStatus(item)}>ערוך</button>
+                      <button
+                        type="button"
+                        className="danger"
+                        disabled={item.is_system}
+                        onClick={() => removeStatus(item)}
+                      >
+                        מחק
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section className="card glass-card settings-panel">
         <div className="card-title-row">
           <div>
@@ -568,7 +705,6 @@ function TablesTab() {
     </section>
   );
 }
-
 export default function SettingsPage({
   user,
   onBack,

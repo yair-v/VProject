@@ -121,6 +121,22 @@ export const api = {
       method: 'DELETE'
     }),
 
+  getStatuses: () => request('/api/statuses'),
+  createStatus: (payload) =>
+    request('/api/statuses', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+  updateStatus: (id, payload) =>
+    request(`/api/statuses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    }),
+  deleteStatus: (id) =>
+    request(`/api/statuses/${id}`, {
+      method: 'DELETE'
+    }),
+
   getCustomers: (search = '') =>
     request(`/api/customers?search=${encodeURIComponent(search)}`),
   createCustomer: (name) =>

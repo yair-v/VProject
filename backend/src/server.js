@@ -150,6 +150,46 @@ function getAllProjectFields(customFields = []) {
   ];
 }
 
+
+function statusKeyFromLabel(label) {
+  const text = String(label || '').trim();
+  const ascii = text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return ascii ? `status_${ascii}` : `status_${Date.now().toString(36)}`;
+}
+
+async function getStatuses({ includeInactive = false } = {}) {
+  const result = await query(
+    `SELECT id, status_key, label, color, sort_order, is_active, is_system, created_at, updated_at
+     FROM statuses
+     WHERE $1::boolean = true OR is_active = true
+     ORDER BY sort_order ASC, id ASC`,
+    [includeInactive]
+  );
+  return result.rows;
+}
+
+async function getStatusMap() {
+  const statuses = await getStatuses({ includeInactive: true });
+  const map = new Map();
+  for (const item of statuses) map.set(item.status_key, item);
+  return map;
+}
+
+async function resolveStatusValue(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 'pending';
+  const statuses = await getStatuses({ includeInactive: false });
+  const lower = raw.toLowerCase();
+  const match = statuses.find((item) =>
+    item.status_key.toLowerCase() === lower || item.label.toLowerCase() === lower
+  );
+  if (match) return match.status_key;
+  return normalizeStatus(raw);
+}
+
 function guessAutoMapping(headers, fields) {
   const autoMapping = {};
   const normalizedHeaders = headers.map((header) => ({
@@ -300,7 +340,7 @@ function formatCustomDataForDisplay(customData, customFields) {
   return out;
 }
 
-function formatRow(row, customFields = []) {
+function formatRow(row, customFields = [], statusMap = new Map()) {
   const targetRaw = row.target_date ? toDbDate(row.target_date) : null;
   const completedRaw = row.completed_date ? toDbDate(row.completed_date) : null;
 
@@ -325,7 +365,8 @@ function formatRow(row, customFields = []) {
     completed_date_ts: completedRaw ? new Date(completedRaw).getTime() : null,
 
     status: row.status,
-    status_label: statusLabel(row.status),
+    status_label: statusMap.get(row.status)?.label || statusLabel(row.status),
+    status_color: statusMap.get(row.status)?.color || '',
     custom_data: formatCustomDataForDisplay(row.custom_data, customFields),
     created_at: row.created_at,
     updated_at: row.updated_at
@@ -346,7 +387,7 @@ async function ensureNamedEntity(table, name) {
   return result.rows[0];
 }
 
-function validateAndNormalizeRow(payload, customFields = []) {
+async function validateAndNormalizeRow(payload, customFields = []) {
   const data = {
     customerName: payload.customer_name || payload.customerName || '',
     branchName: payload.branch_name || payload.branchName || '',
@@ -356,7 +397,7 @@ function validateAndNormalizeRow(payload, customFields = []) {
     installerName: payload.installer_name || payload.installerName || '',
     targetDate: toDbDate(payload.target_date || payload.targetDate || ''),
     completedDate: toDbDate(payload.completed_date || payload.completedDate || ''),
-    status: normalizeStatus(payload.status),
+    status: await resolveStatusValue(payload.status),
     customData: payload.custom_data || payload.customData || {}
   };
 
@@ -800,6 +841,74 @@ app.delete('/api/projects/:projectId/fields/:fieldId', requireRole(['admin', 'ma
   res.status(204).end();
 });
 
+app.get('/api/statuses', async (_req, res) => {
+  const statuses = await getStatuses({ includeInactive: false });
+  res.json(statuses);
+});
+
+app.post('/api/statuses', requireRole(['admin', 'manager']), async (req, res) => {
+  const label = String(req.body?.label || '').trim();
+  const color = String(req.body?.color || '#64748b').trim() || '#64748b';
+
+  if (!label) return res.status(400).json({ error: 'שם סטטוס הוא חובה' });
+
+  const keyBase = statusKeyFromLabel(label);
+  const statusKey = keyBase === 'status_' ? `status_${Date.now().toString(36)}` : keyBase;
+
+  const orderResult = await query(`SELECT COALESCE(MAX(sort_order), 0) + 10 AS next_order FROM statuses`);
+  const result = await query(
+    `INSERT INTO statuses(status_key, label, color, sort_order, is_active, is_system)
+     VALUES ($1, $2, $3, $4, true, false)
+     RETURNING *`,
+    [statusKey, label, color, orderResult.rows[0].next_order]
+  );
+
+  res.status(201).json(result.rows[0]);
+});
+
+app.put('/api/statuses/:id', requireRole(['admin', 'manager']), async (req, res) => {
+  const { id } = req.params;
+  const label = String(req.body?.label || '').trim();
+  const color = String(req.body?.color || '#64748b').trim() || '#64748b';
+  const sortOrder = Number(req.body?.sort_order || 0);
+
+  if (!label) return res.status(400).json({ error: 'שם סטטוס הוא חובה' });
+
+  const result = await query(
+    `UPDATE statuses
+     SET label = $1, color = $2, sort_order = $3
+     WHERE id = $4
+     RETURNING *`,
+    [label, color, sortOrder, id]
+  );
+
+  if (!result.rowCount) return res.status(404).json({ error: 'Status not found' });
+  res.json(result.rows[0]);
+});
+
+app.delete('/api/statuses/:id', requireRole(['admin', 'manager']), async (req, res) => {
+  const { id } = req.params;
+  const statusResult = await query(`SELECT * FROM statuses WHERE id = $1`, [id]);
+  if (!statusResult.rowCount) return res.status(404).json({ error: 'Status not found' });
+
+  const status = statusResult.rows[0];
+  if (status.is_system) {
+    return res.status(400).json({ error: 'לא ניתן למחוק סטטוס מערכת' });
+  }
+
+  const usedResult = await query(
+    `SELECT COUNT(*)::int AS used_count FROM project_rows WHERE status = $1`,
+    [status.status_key]
+  );
+
+  if (usedResult.rows[0].used_count > 0) {
+    return res.status(400).json({ error: 'לא ניתן למחוק סטטוס שנמצא בשימוש בשורות קיימות' });
+  }
+
+  await query(`DELETE FROM statuses WHERE id = $1`, [id]);
+  res.status(204).end();
+});
+
 app.get('/api/customers', async (req, res) => {
   const search = (req.query.search || '').toString().trim();
   const result = await query(
@@ -903,6 +1012,7 @@ app.get('/api/projects/:projectId/rows', async (req, res) => {
   const status = (req.query.status || '').toString().trim();
 
   const customFields = await getProjectCustomFields(projectId);
+  const statusMap = await getStatusMap();
 
   const where = ['r.project_id = $1'];
   const params = [projectId];
@@ -920,7 +1030,7 @@ app.get('/api/projects/:projectId/rows', async (req, res) => {
     )`);
   }
 
-  if (status && ['pending', 'completed'].includes(status)) {
+  if (status) {
     params.push(status);
     where.push(`r.status = $${params.length}`);
   }
@@ -958,7 +1068,7 @@ app.get('/api/projects/:projectId/rows', async (req, res) => {
     page,
     pageSize,
     total: totalResult.rows[0].total,
-    rows: result.rows.map((row) => formatRow(row, customFields))
+    rows: result.rows.map((row) => formatRow(row, customFields, statusMap))
   });
 });
 
@@ -967,7 +1077,7 @@ app.post('/api/projects/:projectId/rows', requireRole(['admin', 'manager']), asy
 
   try {
     const customFields = await getProjectCustomFields(projectId);
-    const data = validateAndNormalizeRow(req.body, customFields);
+    const data = await validateAndNormalizeRow(req.body, customFields);
     const customer = await ensureNamedEntity('customers', data.customerName);
     const installer = await ensureNamedEntity('installers', data.installerName);
 
@@ -1001,7 +1111,7 @@ app.post('/api/projects/:projectId/rows', requireRole(['admin', 'manager']), asy
       [result.rows[0].id]
     );
 
-    res.status(201).json(formatRow(rowResult.rows[0], customFields));
+    res.status(201).json(formatRow(rowResult.rows[0], customFields, await getStatusMap()));
   } catch (error) {
     if (error?.code === '23505') {
       return res.status(400).json({ error: 'המספר הסידורי כבר קיים בפרויקט הזה' });
@@ -1015,7 +1125,7 @@ app.put('/api/projects/:projectId/rows/:rowId', requireRole(['admin', 'manager']
 
   try {
     const customFields = await getProjectCustomFields(projectId);
-    const data = validateAndNormalizeRow(req.body, customFields);
+    const data = await validateAndNormalizeRow(req.body, customFields);
     const customer = await ensureNamedEntity('customers', data.customerName);
     const installer = await ensureNamedEntity('installers', data.installerName);
 
@@ -1059,7 +1169,7 @@ app.put('/api/projects/:projectId/rows/:rowId', requireRole(['admin', 'manager']
       [rowId]
     );
 
-    res.json(formatRow(rowResult.rows[0], customFields));
+    res.json(formatRow(rowResult.rows[0], customFields, await getStatusMap()));
   } catch (error) {
     if (error?.code === '23505') {
       return res.status(400).json({ error: 'המספר הסידורי כבר קיים בפרויקט הזה' });
@@ -1130,7 +1240,7 @@ app.post('/api/projects/:projectId/import-mapped', requireRole(['admin', 'manage
     try {
       const raw = rows[index];
       const mappedPayload = buildMappedPayload(raw, mapping, customFields);
-      const data = validateAndNormalizeRow(mappedPayload, customFields);
+      const data = await validateAndNormalizeRow(mappedPayload, customFields);
 
       const customer = await ensureNamedEntity('customers', data.customerName);
       const installer = await ensureNamedEntity('installers', data.installerName);

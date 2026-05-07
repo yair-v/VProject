@@ -63,7 +63,7 @@ async function init() {
       installer_id INTEGER REFERENCES installers(id) ON DELETE SET NULL,
       target_date DATE,
       completed_date DATE,
-      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
+      status TEXT NOT NULL DEFAULT 'pending',
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
       CONSTRAINT unique_serial_per_project UNIQUE(project_id, serial_number)
@@ -73,6 +73,33 @@ async function init() {
   await query(`
     ALTER TABLE project_rows
     ADD COLUMN IF NOT EXISTS custom_data JSONB NOT NULL DEFAULT '{}'::jsonb;
+  `);
+
+  await query(`
+    ALTER TABLE project_rows
+    DROP CONSTRAINT IF EXISTS project_rows_status_check;
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS statuses (
+      id SERIAL PRIMARY KEY,
+      status_key TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL UNIQUE,
+      color TEXT NOT NULL DEFAULT '#64748b',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      is_system BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await query(`
+    INSERT INTO statuses(status_key, label, color, sort_order, is_active, is_system)
+    VALUES
+      ('pending', 'ממתין', '#f59e0b', 10, true, true),
+      ('completed', 'בוצע', '#22c55e', 20, true, true)
+    ON CONFLICT (status_key) DO NOTHING;
   `);
 
   await query(`
@@ -133,7 +160,7 @@ async function init() {
     $$ LANGUAGE plpgsql;
   `);
 
-  for (const tableName of ['projects', 'project_rows', 'project_fields']) {
+  for (const tableName of ['projects', 'project_rows', 'project_fields', 'statuses']) {
     await query(`DROP TRIGGER IF EXISTS trigger_${tableName}_updated_at ON ${tableName};`);
     await query(`
       CREATE TRIGGER trigger_${tableName}_updated_at

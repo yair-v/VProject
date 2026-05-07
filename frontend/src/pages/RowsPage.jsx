@@ -41,6 +41,10 @@ export default function RowsPage({
     pending_rows: 0
   });
   const [customFields, setCustomFields] = useState([]);
+  const [statusOptions, setStatusOptions] = useState([
+    { status_key: 'pending', label: 'ממתין', color: '#f59e0b' },
+    { status_key: 'completed', label: 'בוצע', color: '#22c55e' }
+  ]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [columnFilters, setColumnFilters] = useState({});
   const [openFilterKey, setOpenFilterKey] = useState(null);
@@ -91,6 +95,23 @@ export default function RowsPage({
 
     loadProjectFields();
   }, [selectedProject?.id, refreshKey]);
+
+
+  useEffect(() => {
+    async function loadStatuses() {
+      try {
+        const result = await api.getStatuses();
+        if (Array.isArray(result) && result.length) setStatusOptions(result);
+      } catch {
+        setStatusOptions([
+          { status_key: 'pending', label: 'ממתין', color: '#f59e0b' },
+          { status_key: 'completed', label: 'בוצע', color: '#22c55e' }
+        ]);
+      }
+    }
+
+    loadStatuses();
+  }, [refreshKey]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -766,8 +787,9 @@ export default function RowsPage({
                   value={form.status}
                   onChange={(e) => updateForm('status', e.target.value)}
                 >
-                  <option value="pending">ממתין</option>
-                  <option value="completed">בוצע</option>
+                  {statusOptions.map((item) => (
+                    <option key={item.status_key} value={item.status_key}>{item.label}</option>
+                  ))}
                 </select>
               </label>
 
@@ -781,21 +803,16 @@ export default function RowsPage({
               ))}
 
               <div className="segmented-status">
-                <button
-                  type="button"
-                  className={form.status === 'pending' ? 'active' : ''}
-                  onClick={() => updateForm('status', 'pending')}
-                >
-                  ממתין
-                </button>
-
-                <button
-                  type="button"
-                  className={form.status === 'completed' ? 'active' : ''}
-                  onClick={() => updateForm('status', 'completed')}
-                >
-                  בוצע
-                </button>
+                {statusOptions.map((item) => (
+                  <button
+                    key={item.status_key}
+                    type="button"
+                    className={form.status === item.status_key ? 'active' : ''}
+                    onClick={() => updateForm('status', item.status_key)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
 
               <div className="form-actions">
@@ -838,8 +855,9 @@ export default function RowsPage({
                   onChange={(e) => setStatus(e.target.value)}
                 >
                   <option value="">כל הסטטוסים</option>
-                  <option value="pending">ממתין</option>
-                  <option value="completed">בוצע</option>
+                  {statusOptions.map((item) => (
+                    <option key={item.status_key} value={item.status_key}>{item.label}</option>
+                  ))}
                 </select>
               </div>
             </div>

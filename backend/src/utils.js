@@ -1,11 +1,16 @@
 export function normalizeStatus(value) {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (['completed', 'done', 'בוצע'].includes(normalized)) return 'completed';
-  return 'pending';
+  const normalized = String(value || '').trim();
+  const lower = normalized.toLowerCase();
+  if (['completed', 'done', 'בוצע'].includes(lower)) return 'completed';
+  if (['pending', 'open', 'ממתין'].includes(lower)) return 'pending';
+  return normalized || 'pending';
 }
 
 export function statusLabel(value) {
-  return normalizeStatus(value) === 'completed' ? 'בוצע' : 'ממתין';
+  const normalized = normalizeStatus(value);
+  if (normalized === 'completed') return 'בוצע';
+  if (normalized === 'pending') return 'ממתין';
+  return String(value || 'ממתין');
 }
 
 function excelSerialToDate(serial) {

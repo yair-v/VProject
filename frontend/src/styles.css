@@ -1913,3 +1913,182 @@ table thead th {
   color: var(--text);
   border-color: var(--accent);
 }
+
+
+
+/* =========================================================
+   SETTINGS TABLES SCREEN - UNIFORM TILES / BUTTONS / FIELDS
+   Fixes stretched drag handle and uneven controls.
+   ========================================================= */
+
+.settings-tables-section {
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-tables-toolbar {
+  min-height: 54px !important;
+  padding: 10px 14px !important;
+  align-items: center !important;
+}
+
+.settings-tables-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(360px, 1fr)) !important;
+  align-items: start !important;
+  gap: 18px !important;
+}
+
+.settings-draggable-tile {
+  min-height: 0 !important;
+  max-height: 520px !important;
+  overflow: hidden !important;
+  align-self: start !important;
+  display: grid !important;
+  grid-template-rows: auto auto auto 1fr !important;
+  gap: 12px !important;
+  padding: 18px !important;
+}
+
+.settings-drag-handle {
+  align-self: start !important;
+  justify-self: end !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important;
+  min-width: 74px !important;
+  max-width: 90px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  padding: 0 10px !important;
+  line-height: 1 !important;
+  flex: 0 0 auto !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+}
+
+.settings-draggable-tile .card-title-row {
+  min-height: 54px !important;
+  align-items: center !important;
+}
+
+.settings-draggable-tile .card-title-row h3 {
+  margin: 4px 0 0 !important;
+}
+
+.settings-draggable-tile .form-actions {
+  display: grid !important;
+  grid-template-columns: minmax(180px, 1fr) 44px 120px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 44px !important;
+}
+
+.settings-draggable-tile .form-actions input:not([type="color"]) {
+  width: 100% !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  padding: 0 12px !important;
+  border-radius: 14px !important;
+  box-sizing: border-box !important;
+}
+
+.settings-draggable-tile .form-actions .color-picker-input,
+.settings-draggable-tile input[type="color"].color-picker-input {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  padding: 4px !important;
+  border-radius: 12px !important;
+  box-sizing: border-box !important;
+}
+
+.settings-draggable-tile .form-actions button,
+.settings-draggable-tile .primary-btn,
+.settings-draggable-tile .secondary-btn {
+  width: 120px !important;
+  min-width: 120px !important;
+  max-width: 120px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  padding: 0 12px !important;
+  border-radius: 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+.settings-draggable-tile .table-wrap {
+  min-height: 260px !important;
+  max-height: 330px !important;
+  overflow: auto !important;
+  border-radius: 16px !important;
+}
+
+.settings-draggable-tile table {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
+.settings-draggable-tile th,
+.settings-draggable-tile td {
+  height: 36px !important;
+  padding: 6px 10px !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+}
+
+.settings-draggable-tile thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 3 !important;
+  background: var(--panel-strong) !important;
+}
+
+.settings-draggable-tile .row-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
+}
+
+.settings-draggable-tile .row-actions button {
+  width: 54px !important;
+  min-width: 54px !important;
+  max-width: 54px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  padding: 0 8px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+}
+
+.status-management-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 92px !important;
+  max-width: 160px !important;
+  height: 26px !important;
+  padding: 0 10px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 1100px) {
+  .settings-tables-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

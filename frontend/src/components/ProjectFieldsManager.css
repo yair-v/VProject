@@ -104,3 +104,20 @@
         grid-column: auto;
     }
 }
+
+/* Fixed table workspace */
+.table-container,
+.table-wrapper,
+.data-table-wrap {
+  min-height: 700px !important;
+  max-height: 700px !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+}
+
+table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 5 !important;
+  background: white !important;
+}

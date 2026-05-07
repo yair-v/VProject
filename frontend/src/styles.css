@@ -1859,3 +1859,57 @@ table thead th {
   z-index: 5 !important;
   background: white !important;
 }
+
+/* Settings tiles drag & drop order */
+.settings-tables-section {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-tables-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.settings-draggable-tile {
+  position: relative;
+  cursor: grab;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.settings-draggable-tile:active {
+  cursor: grabbing;
+}
+
+.settings-draggable-tile.dragging {
+  opacity: 0.62;
+  transform: scale(0.985);
+  border-color: var(--accent);
+  box-shadow: 0 18px 40px rgba(77, 163, 255, 0.18);
+}
+
+.settings-drag-handle {
+  justify-self: start;
+  width: max-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(77, 163, 255, 0.08);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  user-select: none;
+}
+
+.settings-drag-handle:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}

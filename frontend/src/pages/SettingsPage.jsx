@@ -2,6 +2,34 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import AppBrand from '../components/AppBrand';
 
+const SETTINGS_TILES_ORDER_KEY = 'vproject.settings.tiles.order.v1';
+const DEFAULT_SETTINGS_TILES_ORDER = ['statuses', 'customers', 'installers'];
+
+function normalizeSettingsTilesOrder(savedOrder) {
+  const saved = Array.isArray(savedOrder) ? savedOrder : [];
+  return [
+    ...saved.filter((key) => DEFAULT_SETTINGS_TILES_ORDER.includes(key)),
+    ...DEFAULT_SETTINGS_TILES_ORDER.filter((key) => !saved.includes(key))
+  ];
+}
+
+function DraggableSettingsTile({ tileKey, title, children, onDragStart, onDragOver, onDrop, isDragging }) {
+  return (
+    <section
+      className={`card glass-card settings-panel settings-draggable-tile ${isDragging ? 'dragging' : ''}`}
+      draggable
+      onDragStart={(e) => onDragStart(e, tileKey)}
+      onDragOver={(e) => onDragOver(e, tileKey)}
+      onDrop={(e) => onDrop(e, tileKey)}
+      onDragEnd={(e) => onDragStart(e, null)}
+    >
+      <div className="settings-drag-handle" title="גרור כדי לשנות סדר">↕ גרירה</div>
+      {children}
+    </section>
+  );
+}
+
+
 function DisplaySettingsTab({ displaySettings, setDisplaySettings }) {
   return (
     <section className="card glass-card settings-panel">
@@ -396,6 +424,50 @@ function TablesTab() {
   const [statusName, setStatusName] = useState('');
   const [statusColor, setStatusColor] = useState('#64748b');
   const [error, setError] = useState('');
+  const [draggedTile, setDraggedTile] = useState(null);
+  const [tileOrder, setTileOrder] = useState(() => {
+    try {
+      return normalizeSettingsTilesOrder(JSON.parse(localStorage.getItem(SETTINGS_TILES_ORDER_KEY) || '[]'));
+    } catch {
+      return DEFAULT_SETTINGS_TILES_ORDER;
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(SETTINGS_TILES_ORDER_KEY, JSON.stringify(tileOrder));
+  }, [tileOrder]);
+
+  function handleTileDragStart(event, tileKey) {
+    setDraggedTile(tileKey);
+    if (tileKey && event?.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', tileKey);
+    }
+  }
+
+  function handleTileDragOver(event) {
+    event.preventDefault();
+    if (event?.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  }
+
+  function handleTileDrop(event, targetKey) {
+    event.preventDefault();
+    const sourceKey = draggedTile || event.dataTransfer.getData('text/plain');
+    setDraggedTile(null);
+
+    if (!sourceKey || sourceKey === targetKey) return;
+
+    setTileOrder((prev) => {
+      const next = normalizeSettingsTilesOrder(prev).filter((key) => key !== sourceKey);
+      const targetIndex = next.indexOf(targetKey);
+      next.splice(targetIndex < 0 ? next.length : targetIndex, 0, sourceKey);
+      return normalizeSettingsTilesOrder(next);
+    });
+  }
+
+  function resetTileOrder() {
+    setTileOrder(DEFAULT_SETTINGS_TILES_ORDER);
+  }
 
   async function loadData() {
     try {
@@ -540,9 +612,16 @@ function TablesTab() {
     }
   }
 
-  return (
-    <section className="settings-tables-grid">
-      <section className="card glass-card settings-panel">
+  const tiles = {
+    statuses: (
+      <DraggableSettingsTile
+        key="statuses"
+        tileKey="statuses"
+        onDragStart={handleTileDragStart}
+        onDragOver={handleTileDragOver}
+        onDrop={handleTileDrop}
+        isDragging={draggedTile === 'statuses'}
+      >
         <div className="card-title-row">
           <div>
             <div className="section-chip">Tables</div>
@@ -611,9 +690,17 @@ function TablesTab() {
             </tbody>
           </table>
         </div>
-      </section>
-
-      <section className="card glass-card settings-panel">
+      </DraggableSettingsTile>
+    ),
+    customers: (
+      <DraggableSettingsTile
+        key="customers"
+        tileKey="customers"
+        onDragStart={handleTileDragStart}
+        onDragOver={handleTileDragOver}
+        onDrop={handleTileDrop}
+        isDragging={draggedTile === 'customers'}
+      >
         <div className="card-title-row">
           <div>
             <div className="section-chip">Tables</div>
@@ -655,9 +742,17 @@ function TablesTab() {
             </tbody>
           </table>
         </div>
-      </section>
-
-      <section className="card glass-card settings-panel">
+      </DraggableSettingsTile>
+    ),
+    installers: (
+      <DraggableSettingsTile
+        key="installers"
+        tileKey="installers"
+        onDragStart={handleTileDragStart}
+        onDragOver={handleTileDragOver}
+        onDrop={handleTileDrop}
+        isDragging={draggedTile === 'installers'}
+      >
         <div className="card-title-row">
           <div>
             <div className="section-chip">Tables</div>
@@ -699,6 +794,19 @@ function TablesTab() {
             </tbody>
           </table>
         </div>
+      </DraggableSettingsTile>
+    )
+  };
+
+  return (
+    <section className="settings-tables-section">
+      <div className="settings-tables-toolbar">
+        <span>אפשר לגרור אריחים ולסדר את המסך כמו שנוח לך.</span>
+        <button type="button" className="secondary-btn" onClick={resetTileOrder}>איפוס סדר אריחים</button>
+      </div>
+
+      <section className="settings-tables-grid">
+        {normalizeSettingsTilesOrder(tileOrder).map((key) => tiles[key])}
       </section>
 
       {error && <div className="error-box">{error}</div>}

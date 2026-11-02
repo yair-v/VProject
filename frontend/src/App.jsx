@@ -81,7 +81,6 @@ export default function App() {
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingRows, setLoadingRows] = useState(false);
   const [error, setError] = useState('');
-  const [modalError, setModalError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [search, setSearch] = useState('');
@@ -119,25 +118,6 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', displaySettings.theme);
     document.documentElement.style.zoom = `${displaySettings.zoom}%`;
   }, [displaySettings]);
-
-
-  useEffect(() => {
-    if (error) setModalError(error);
-  }, [error]);
-
-  function closeErrorPopup() {
-    setModalError('');
-    setError('');
-  }
-
-  useEffect(() => {
-    function onKeyDown(event) {
-      if (!modalError) return;
-      if (event.key === 'Escape' || event.key === 'Enter') closeErrorPopup();
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [modalError]);
 
   useEffect(() => {
     if (!user) {
@@ -354,6 +334,35 @@ export default function App() {
     }
   }
 
+  async function archiveProject(project) {
+    const blob = await api.downloadProjectArchive(project.id);
+    const text = await blob.text();
+    const data = JSON.parse(text);
+    if (data.format !== 'vproject-archive' || data.rows.length !== Number(project.rows_count)) throw new Error('הגיבוי לא אומת; הפרויקט לא נמחק');
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `VProject-${project.id}-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    if (!window.confirm(`הגיבוי של "${project.name}" נשלח להורדה. ודא שהקובץ נשמר במחשב וניתן לפתוח אותו. רק לאחר מכן לחץ אישור כדי למחוק את הפרויקט מהמערכת. האם למחוק?`)) return;
+    await api.deleteProject(project.id);
+    await loadProjects();
+    setRefreshKey((prev) => prev + 1);
+  }
+
+  async function restoreProjectArchive(file) {
+    const data = JSON.parse(await file.text());
+    if (data.format !== 'vproject-archive' || data.version !== 1 || !Array.isArray(data.rows) || !Array.isArray(data.fields)) throw new Error('קובץ גיבוי לא תקין');
+    if (!window.confirm(`לשחזר את הפרויקט "${data.project?.name}" עם ${data.rows.length} רשומות?`)) return;
+    await api.restoreProjectArchive(data);
+    await loadProjects();
+    setRefreshKey((prev) => prev + 1);
+    window.alert('הפרויקט שוחזר בהצלחה');
+  }
+
   async function removeProject(projectId) {
     try {
       await api.deleteProject(projectId);
@@ -408,27 +417,6 @@ export default function App() {
     />
   );
 
-
-  const errorPopup = modalError ? (
-    <div className="app-modal-overlay" role="presentation" onMouseDown={closeErrorPopup}>
-      <div
-        className="app-modal-box app-modal-error"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="app-modal-title"
-        aria-describedby="app-modal-message"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="app-modal-icon">!</div>
-        <h2 id="app-modal-title">שגיאה</h2>
-        <p id="app-modal-message">{modalError}</p>
-        <button type="button" className="primary-btn app-modal-confirm" autoFocus onClick={closeErrorPopup}>
-          אישור
-        </button>
-      </div>
-    </div>
-  ) : null;
-
   if (route.page === 'settings') {
     return (
       <>
@@ -439,7 +427,6 @@ export default function App() {
           displaySettings={displaySettings}
           setDisplaySettings={setDisplaySettings}
         />
-        {errorPopup}
         {floatingMenu}
       </>
     );
@@ -453,7 +440,6 @@ export default function App() {
           projectName={selectedProject?.name || ''}
           onBack={() => goToProjectRows(route.projectId)}
         />
-        {errorPopup}
         {floatingMenu}
       </>
     );
@@ -468,7 +454,7 @@ export default function App() {
           rowsData={rowsData}
           loadingRows={loadingRows}
           loadingProjects={loadingProjects}
-          error=""
+          error={error}
           search={search}
           setSearch={setSearch}
           status={status}
@@ -493,7 +479,6 @@ export default function App() {
           openSettings={goToSettings}
           user={user}
         />
-        {errorPopup}
         {floatingMenu}
       </>
     );
@@ -505,7 +490,7 @@ export default function App() {
         <ProjectsPage
           projects={projects}
           loadingProjects={loadingProjects}
-          error=""
+          error={error}
           projectName={projectName}
           setProjectName={setProjectName}
           projectDescription={projectDescription}
@@ -514,9 +499,10 @@ export default function App() {
           openProject={goToProjectRows}
           openSettings={goToSettings}
           deleteProject={removeProject}
+          archiveProject={archiveProject}
+          restoreProjectArchive={restoreProjectArchive}
           user={user}
         />
-        {errorPopup}
         {floatingMenu}
       </>
     );
@@ -527,13 +513,12 @@ export default function App() {
       <DashboardPage
         projects={projects}
         loadingProjects={loadingProjects}
-        error=""
+        error={error}
         openProjectsPage={goToProjects}
         openProjectRows={goToProjectRows}
         openSettings={goToSettings}
         user={user}
       />
-      {errorPopup}
       {floatingMenu}
     </>
   );

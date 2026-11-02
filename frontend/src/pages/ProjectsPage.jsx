@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import AppBrand from '../components/AppBrand';
 import ProjectClock from '../components/ProjectClock';
 
@@ -12,8 +13,11 @@ export default function ProjectsPage({
   createProject,
   openProject,
   deleteProject,
+  archiveProject,
+  restoreProjectArchive,
   user
 }) {
+  const restoreInput = useRef(null);
   return (
     <div className="app-shell app-shell-projects">
       <main className="main-panel single-panel">
@@ -25,7 +29,9 @@ export default function ProjectsPage({
               <p>יצירה, בחירה וכניסה לניהול מפורט של כל פרויקט במסך נפרד.</p>
             </div>
 
-            <div className="toolbar-actions" />
+            <div className="toolbar-actions">
+              {user.role === 'admin' && <><input ref={restoreInput} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) try { await restoreProjectArchive(file); } catch (err) { window.alert(err.message); } }} /><button type="button" onClick={() => restoreInput.current?.click()}>שחזור פרויקט מגיבוי</button></>}
+            </div>
           </section>
 
           <AppBrand />
@@ -118,6 +124,7 @@ export default function ProjectsPage({
 
                     {user.role === 'admin' && (
                       <div className="project-card-actions">
+                        <button type="button" onClick={async () => { try { await archiveProject(project); } catch (err) { window.alert(err.message); } }}>סגור פרויקט, גבה והורד</button>
                         <button
                           type="button"
                           className="danger"

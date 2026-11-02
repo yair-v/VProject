@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import { query } from './db.js';
+import { query, pool } from './db.js';
 import { normalizeStatus, statusLabel, toDbDate, toDisplayDate, todayDbDate } from './utils.js';
 
 dotenv.config();
@@ -743,6 +743,56 @@ app.delete('/api/projects/:id', requireRole(['admin']), async (req, res) => {
   const { id } = req.params;
   await query('DELETE FROM projects WHERE id = $1', [id]);
   res.status(204).end();
+});
+
+// Project archive: portable JSON containing all project-owned data and referenced names.
+app.get('/api/projects/:id/archive', requireRole(['admin']), async (req, res) => {
+  const id = req.params.id;
+  const project = await query('SELECT * FROM projects WHERE id=$1', [id]);
+  if (!project.rowCount) return res.status(404).json({ error: 'Project not found' });
+  const fields = await query('SELECT * FROM project_fields WHERE project_id=$1 ORDER BY sort_order,id', [id]);
+  const rows = await query(`SELECT r.*, c.name AS archive_customer_name, i.name AS archive_installer_name
+    FROM project_rows r LEFT JOIN customers c ON c.id=r.customer_id
+    LEFT JOIN installers i ON i.id=r.installer_id WHERE r.project_id=$1 ORDER BY r.id`, [id]);
+  const archive = { format: 'vproject-archive', version: 1, exported_at: new Date().toISOString(), project: project.rows[0], fields: fields.rows, rows: rows.rows };
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="vproject-${id}-archive.json"`);
+  res.json(archive);
+});
+
+app.post('/api/projects/restore-archive', requireRole(['admin']), express.json({ limit: '30mb' }), async (req, res) => {
+  const data = req.body;
+  if (data?.format !== 'vproject-archive' || data.version !== 1 || !data.project || !Array.isArray(data.fields) || !Array.isArray(data.rows) || !data.project.name || data.fields.length > 1000 || data.rows.length > 100000) {
+    return res.status(400).json({ error: 'קובץ הגיבוי אינו תקין או אינו נתמך' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const project = (await client.query('INSERT INTO projects(name,description,created_at,updated_at) VALUES($1,$2,$3,$4) RETURNING id', [data.project.name, data.project.description || '', data.project.created_at, data.project.updated_at])).rows[0];
+    for (const f of data.fields) {
+      await client.query(`INSERT INTO project_fields(project_id,field_key,field_label,field_type,is_required,options_json,sort_order,is_active,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [project.id,f.field_key,f.field_label,f.field_type,f.is_required,JSON.stringify(f.options_json || []),f.sort_order,f.is_active,f.created_at,f.updated_at]);
+    }
+    for (const r of data.rows) {
+      let customerId = null, installerId = null;
+      if (r.archive_customer_name) {
+        const found = await client.query('SELECT id FROM customers WHERE name=$1 ORDER BY id LIMIT 1',[r.archive_customer_name]);
+        if (found.rowCount) customerId=found.rows[0].id;
+        else customerId=(await client.query('INSERT INTO customers(name) VALUES($1) RETURNING id',[r.archive_customer_name])).rows[0].id;
+      }
+      if (r.archive_installer_name) {
+        const found = await client.query('SELECT id FROM installers WHERE name=$1 ORDER BY id LIMIT 1',[r.archive_installer_name]);
+        if (found.rowCount) installerId=found.rows[0].id;
+        else installerId=(await client.query('INSERT INTO installers(name) VALUES($1) RETURNING id',[r.archive_installer_name])).rows[0].id;
+      }
+      await client.query(`INSERT INTO project_rows(project_id,customer_id,branch_name,branch_number,position_number,serial_number,installer_id,target_date,completed_date,status,custom_data,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,[project.id,customerId,r.branch_name,r.branch_number,r.position_number,r.serial_number,installerId,r.target_date,r.completed_date,r.status,JSON.stringify(r.custom_data || {}),r.created_at,r.updated_at]);
+    }
+    await client.query('COMMIT');
+    res.status(201).json({ id: project.id, restored_rows: data.rows.length });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Archive restore failed',err);
+    res.status(400).json({ error: 'השחזור נכשל. לא בוצעו שינויים במסד הנתונים.' });
+  } finally { client.release(); }
 });
 
 app.get('/api/projects/:projectId/fields', requireRole(['admin', 'manager']), async (req, res) => {

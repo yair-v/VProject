@@ -105,6 +105,9 @@ export const api = {
       method: 'DELETE'
     }),
 
+  downloadProjectArchive: (id) => request(`/api/projects/${id}/archive`),
+  restoreProjectArchive: (data) => request('/api/projects/restore-archive', { method: 'POST', body: JSON.stringify(data) }),
+
   getProjectFields: (projectId) => request(`/api/projects/${projectId}/fields`),
   createProjectField: (projectId, payload) =>
     request(`/api/projects/${projectId}/fields`, {

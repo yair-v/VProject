@@ -335,10 +335,9 @@ export default function App() {
   }
 
   async function archiveProject(project) {
-    const blob = await api.downloadProjectArchive(project.id);
-    const text = await blob.text();
-    const data = JSON.parse(text);
-    if (data.format !== 'vproject-archive' || data.rows.length !== Number(project.rows_count)) throw new Error('הגיבוי לא אומת; הפרויקט לא נמחק');
+    const data = await api.downloadProjectArchive(project.id);
+    const text = JSON.stringify(data, null, 2);
+    if (data.format !== 'vproject-archive' || !Array.isArray(data.rows) || data.rows.length !== Number(project.rows_count)) throw new Error('הגיבוי לא אומת; הפרויקט לא נמחק');
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;

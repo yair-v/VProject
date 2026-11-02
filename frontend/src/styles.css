@@ -2092,3 +2092,68 @@ table thead th {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Project archive UI: scoped layout correction; no changes to other screens. */
+.app-shell-projects .projects-pro-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+.app-shell-projects .project-card-shell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+.app-shell-projects .project-card-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 14px;
+  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  text-align: right;
+  direction: rtl;
+  padding: 18px;
+}
+.app-shell-projects .project-card-main > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.app-shell-projects .project-pro-top { flex-wrap: wrap; align-items: flex-start; }
+.app-shell-projects .project-pro-top strong { overflow-wrap: anywhere; }
+.app-shell-projects .project-card-main > :last-child { justify-self: center; max-width: 100%; }
+.app-shell-projects .project-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-start;
+  direction: rtl;
+  padding: 12px 18px 18px;
+  border-top: 1px solid var(--border);
+}
+.app-shell-projects .project-card-actions button {
+  width: auto;
+  min-width: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+.app-shell-projects .archive-download-btn,
+.app-shell-projects .archive-restore-btn {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+}
+.app-shell-projects .project-card-actions .danger {
+  color: var(--danger);
+  background: rgba(255, 95, 109, 0.09);
+  border: 1px solid rgba(255, 95, 109, 0.35);
+}
+.app-shell-projects .toolbar-actions { display: flex; align-items: center; gap: 10px; }
+@media (max-width: 520px) {
+  .app-shell-projects .project-card-main { grid-template-columns: minmax(0, 1fr); }
+  .app-shell-projects .project-card-actions button { flex: 1 1 100%; }
+}

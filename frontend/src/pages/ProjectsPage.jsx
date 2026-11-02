@@ -30,7 +30,7 @@ export default function ProjectsPage({
             </div>
 
             <div className="toolbar-actions">
-              {user.role === 'admin' && <><input ref={restoreInput} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) try { await restoreProjectArchive(file); } catch (err) { window.alert(err.message); } }} /><button type="button" onClick={() => restoreInput.current?.click()}>שחזור פרויקט מגיבוי</button></>}
+              {user?.role === 'admin' && <><input ref={restoreInput} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) try { await restoreProjectArchive(file); } catch (err) { window.alert(err.message); } }} /><button type="button" className="archive-restore-btn" onClick={() => restoreInput.current?.click()}>שחזור פרויקט מגיבוי</button></>}
             </div>
           </section>
 
@@ -90,7 +90,7 @@ export default function ProjectsPage({
                 {projects.map((project) => (
                   <div
                     key={project.id}
-                    className="project-pro-card with-clock project-card-shell"
+                    className="project-pro-card project-card-shell"
                   >
                     <button
                       type="button"
@@ -122,9 +122,9 @@ export default function ProjectsPage({
                       />
                     </button>
 
-                    {user.role === 'admin' && (
+                    {user?.role === 'admin' && (
                       <div className="project-card-actions">
-                        <button type="button" onClick={async () => { try { await archiveProject(project); } catch (err) { window.alert(err.message); } }}>סגור פרויקט, גבה והורד</button>
+                        <button type="button" className="archive-download-btn" onClick={async () => { try { await archiveProject(project); } catch (err) { window.alert(err.message); } }}>סגור פרויקט, גבה והורד</button>
                         <button
                           type="button"
                           className="danger"

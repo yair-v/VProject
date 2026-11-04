@@ -257,7 +257,7 @@ export default function ProjectFieldsManager({
                 <div className="inline-field-chip-main">
                   <div className="mini-field-title-line">
                     <strong>{field.field_label}</strong>
-                    {canManage && (
+                    {(
                       <label className="mini-required-toggle" title="הגדר האם חובה למלא שדה זה">
                         <input type="checkbox" checked={Boolean(field.is_required)}
                           disabled={updatingId !== null} onChange={() => toggleRequired(field)}

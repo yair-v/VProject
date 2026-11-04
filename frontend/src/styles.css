@@ -2352,3 +2352,148 @@ button:focus-visible, a:focus-visible {
   .inline-fields-manager .inline-field-chip-actions > button,
   .inline-fields-manager .inline-field-chip-actions > .field-required-control { min-width: 0; padding: 8px 10px; }
 }
+
+
+/* VP clean field rows / iOS-style required toggle — 2026-11-04 */
+.inline-fields-manager .inline-fields-list { display:flex; flex-direction:column; gap:8px; width:100%; min-width:0; }
+.inline-fields-manager .inline-field-chip {
+  display:grid; grid-template-columns:32px minmax(0,1fr) auto !important;
+  align-items:center; gap:12px; min-width:0; width:100%;
+  padding:11px 14px; border-radius:12px; box-sizing:border-box;
+}
+.inline-fields-manager .drag-handle-btn { width:30px; height:34px; min-width:30px; padding:0; border-radius:8px; }
+.inline-fields-manager .inline-field-chip-main { min-width:0; width:auto; display:flex; flex-direction:column; gap:3px; text-align:right; }
+.inline-fields-manager .inline-field-chip-main strong {
+  display:block; font-size:14px; font-weight:650; line-height:1.4;
+  overflow-wrap:normal !important; word-break:normal !important;
+  white-space:normal; min-width:0;
+}
+.inline-fields-manager .inline-field-chip-main span { font-size:12px; line-height:1.4; overflow-wrap:normal !important; word-break:normal !important; }
+.inline-fields-manager .inline-field-chip-actions {
+  grid-column:auto !important; display:flex; flex-direction:row !important;
+  flex-wrap:nowrap !important; gap:10px; align-items:center; justify-content:flex-end;
+  width:max-content; min-width:0;
+}
+.inline-fields-manager .inline-field-chip-actions > button {
+  display:inline-flex; width:auto; min-width:0; height:32px; min-height:32px;
+  padding:5px 11px; border-radius:8px; font-size:12px; font-weight:500;
+  white-space:nowrap; box-shadow:none;
+}
+.inline-fields-manager .inline-field-chip-actions > button.danger {
+  color:#a43b44; border:1px solid #efd5d8; background:transparent;
+}
+.inline-fields-manager .field-required-control {
+  display:inline-flex; flex-direction:row; align-items:center; gap:7px;
+  min-width:0 !important; width:auto !important; height:32px !important;
+  min-height:32px !important; padding:0 !important; margin:0;
+  border:0; background:transparent; border-radius:0; cursor:pointer;
+  font-size:12px; font-weight:500; white-space:nowrap;
+}
+.inline-fields-manager .field-required-control input[type="checkbox"] {
+  appearance:none; -webkit-appearance:none; position:relative; display:inline-block;
+  width:38px !important; min-width:38px; height:22px !important; flex:0 0 38px !important;
+  margin:0; padding:0; border:0; border-radius:999px; background:#cbd5e1;
+  cursor:pointer; transition:background .18s ease; vertical-align:middle;
+}
+.inline-fields-manager .field-required-control input[type="checkbox"]::before {
+  content:""; position:absolute; top:2px; left:2px; width:18px; height:18px;
+  border-radius:50%; background:white; box-shadow:0 1px 3px #0003;
+  transition:transform .18s ease;
+}
+.inline-fields-manager .field-required-control input[type="checkbox"]:checked { background:#23865b; }
+.inline-fields-manager .field-required-control input[type="checkbox"]:checked::before { transform:translateX(16px); }
+.inline-fields-manager .field-required-control input[type="checkbox"]:focus-visible { outline:2px solid #1557aa; outline-offset:3px; }
+.inline-fields-manager .field-required-control input[type="checkbox"]:disabled { opacity:.55; cursor:wait; }
+@media (max-width:760px) {
+  .inline-fields-manager .inline-field-chip { grid-template-columns:30px minmax(0,1fr) !important; }
+  .inline-fields-manager .inline-field-chip-actions {
+    grid-column:1 / -1 !important; justify-self:stretch; justify-content:flex-start;
+    width:auto; flex-wrap:wrap !important; padding-inline-start:42px;
+  }
+}
+@media (max-width:420px) {
+  .inline-fields-manager .inline-field-chip { padding:10px; column-gap:8px; }
+  .inline-fields-manager .inline-field-chip-actions { padding-inline-start:0; gap:7px; }
+}
+
+/* VP: stable, readable field editor cards. Overrides legacy conflicting grids. */
+.inline-fields-manager .inline-fields-list { display:flex; flex-direction:column; gap:10px; width:100%; min-width:0; }
+.inline-fields-manager .inline-field-chip {
+  display:grid !important;
+  grid-template-columns:32px minmax(0,1fr) !important;
+  grid-template-rows:auto auto !important;
+  align-items:center !important;
+  column-gap:12px !important;
+  row-gap:12px !important;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  height:auto !important;
+  padding:14px !important;
+  box-sizing:border-box !important;
+  border:1px solid #d7e0ec !important;
+  border-radius:12px !important;
+  background:#fff !important;
+}
+.inline-fields-manager .drag-handle-btn {
+  grid-column:1 !important; grid-row:1 !important;
+  width:30px !important; min-width:30px !important; height:32px !important;
+  padding:0 !important; font-size:15px !important;
+}
+.inline-fields-manager .inline-field-chip-main {
+  grid-column:2 !important; grid-row:1 !important;
+  display:block !important; width:100% !important; min-width:0 !important;
+  text-align:right !important; direction:rtl !important;
+}
+.inline-fields-manager .inline-field-chip-main strong,
+.inline-fields-manager .inline-field-chip-main span {
+  display:block !important; width:auto !important; min-width:0 !important;
+  overflow-wrap:break-word !important; word-break:normal !important;
+  white-space:normal !important; letter-spacing:normal !important;
+  writing-mode:horizontal-tb !important; line-height:1.5 !important;
+}
+.inline-fields-manager .inline-field-chip-main strong { font-size:14px !important; font-weight:600 !important; color:#1c2b3f !important; }
+.inline-fields-manager .inline-field-chip-main span { font-size:12px !important; color:#62748a !important; }
+.inline-fields-manager .inline-field-chip-actions {
+  grid-column:1 / -1 !important; grid-row:2 !important;
+  display:flex !important; flex-direction:row !important; flex-wrap:wrap !important;
+  align-items:center !important; justify-content:flex-start !important;
+  justify-self:stretch !important; gap:8px !important;
+  width:100% !important; min-width:0 !important; padding:0 !important;
+  direction:rtl !important;
+}
+.inline-fields-manager .inline-field-chip-actions > button {
+  display:inline-flex !important; flex:0 0 auto !important;
+  width:auto !important; min-width:0 !important;
+  height:32px !important; min-height:32px !important;
+  padding:5px 12px !important; margin:0 !important;
+  border-radius:8px !important; font-size:12px !important;
+  white-space:nowrap !important;
+}
+.inline-fields-manager .inline-field-chip-actions > .field-required-control {
+  display:inline-flex !important; flex:0 0 auto !important;
+  flex-direction:row !important; align-items:center !important;
+  gap:8px !important; width:auto !important; min-width:0 !important;
+  height:32px !important; min-height:32px !important;
+  margin:0 !important; padding:0 !important; border:0 !important;
+  background:transparent !important; white-space:nowrap !important;
+}
+.inline-fields-manager .field-required-control input[type="checkbox"] {
+  appearance:none !important; -webkit-appearance:none !important;
+  position:relative !important; display:inline-block !important;
+  width:38px !important; min-width:38px !important; height:22px !important;
+  flex:0 0 38px !important; margin:0 !important; padding:0 !important;
+  border:0 !important; border-radius:999px !important; background:#cbd5e1 !important;
+  cursor:pointer !important; transition:background .18s ease !important;
+}
+.inline-fields-manager .field-required-control input[type="checkbox"]::before {
+  content:""; position:absolute; top:2px; left:2px;
+  width:18px; height:18px; border-radius:50%; background:#fff;
+  box-shadow:0 1px 3px #0003; transition:transform .18s ease;
+}
+.inline-fields-manager .field-required-control input[type="checkbox"]:checked { background:#23865b !important; }
+.inline-fields-manager .field-required-control input[type="checkbox"]:checked::before { transform:translateX(16px); }
+@media (max-width:420px) {
+  .inline-fields-manager .inline-field-chip { padding:12px !important; }
+  .inline-fields-manager .inline-field-chip-actions { gap:6px !important; }
+}

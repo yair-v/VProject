@@ -425,6 +425,7 @@ function TablesTab({ user }) {
   const [mergeTarget, setMergeTarget] = useState('');
   const [mergePreview, setMergePreview] = useState(null);
   const [mergeBusy, setMergeBusy] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [statusName, setStatusName] = useState('');
   const [statusColor, setStatusColor] = useState('#64748b');
   const [error, setError] = useState('');
@@ -533,6 +534,7 @@ function TablesTab({ user }) {
       setMergePreview(null);
       setMergeSource('');
       setMergeTarget('');
+      setMergeOpen(false);
       await loadData();
     } catch (err) { setError(err.message); }
     finally { setMergeBusy(false); }
@@ -801,36 +803,8 @@ function TablesTab({ user }) {
         </div>
 
         {user.role === 'admin' && (
-          <div className="installer-merge-panel">
-            <h4>מיזוג מתקינים כפולים</h4>
-            <p>בחר מתקין שגוי ומתקין תקין. כל השיוכים יועברו לתקין ורק לאחר מכן השגוי יוסר.</p>
-            <div className="installer-merge-grid">
-              <label className="field"><span>מתקין שגוי (X)</span>
-                <select value={mergeSource} onChange={e => { setMergeSource(e.target.value); setMergePreview(null); }}>
-                  <option value="">בחר מתקין</option>
-                  {installers.map(item => <option key={item.id} value={item.id}>{item.name} (#{item.id})</option>)}
-                </select>
-              </label>
-              <label className="field"><span>מתקין תקין (Y)</span>
-                <select value={mergeTarget} onChange={e => { setMergeTarget(e.target.value); setMergePreview(null); }}>
-                  <option value="">בחר מתקין</option>
-                  {installers.map(item => <option key={item.id} value={item.id}>{item.name} (#{item.id})</option>)}
-                </select>
-              </label>
-            </div>
-            <button type="button" className="secondary-btn" disabled={!mergeSource || !mergeTarget || mergeSource === mergeTarget} onClick={previewMerge}>בדוק שיוכים לפני מיזוג</button>
-            {mergePreview && (
-              <div className="installer-merge-preview" role="status">
-                <strong>בדיקה לפני ביצוע</strong>
-                <p>העברה מ־{mergePreview.source.name} אל {mergePreview.target.name}</p>
-                <p>{mergePreview.rows_count} רשומות ב־{mergePreview.projects_count} פרויקטים יועברו.</p>
-                <p>הפעולה אינה ניתנת לביטול אוטומטי. יש לוודא שנבחרו המתקינים הנכונים.</p>
-                <div className="row-actions">
-                  <button type="button" className="danger" disabled={mergeBusy} onClick={confirmMerge}>{mergeBusy ? 'מבצע מיזוג…' : 'אשר מיזוג והסר רישום שגוי'}</button>
-                  <button type="button" className="secondary-btn" disabled={mergeBusy} onClick={() => setMergePreview(null)}>ביטול</button>
-                </div>
-              </div>
-            )}
+          <div className="installer-merge-trigger">
+            <button type="button" className="secondary-btn" onClick={() => setMergeOpen(true)}>מיזוג מתקינים כפולים</button>
           </div>
         )}
 
@@ -871,6 +845,46 @@ function TablesTab({ user }) {
       <section className="settings-tables-grid">
         {normalizeSettingsTilesOrder(tileOrder).map((key) => tiles[key])}
       </section>
+
+
+      {user.role === 'admin' && mergeOpen && (
+        <div className="installer-merge-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget && !mergeBusy) setMergeOpen(false); }}>
+          <section className="installer-merge-dialog" role="dialog" aria-modal="true" aria-labelledby="installer-merge-title" dir="rtl">
+            <div className="installer-merge-dialog-header">
+              <h3 id="installer-merge-title">מיזוג מתקינים כפולים</h3>
+              <button type="button" className="secondary-btn" disabled={mergeBusy} onClick={() => setMergeOpen(false)} aria-label="סגור">✕</button>
+            </div>
+            <p>בחר מתקין שגוי ומתקין תקין. השיוכים יועברו לתקין ורק לאחר מכן הרישום השגוי יוסר.</p>
+            <div className="installer-merge-grid">
+              <label className="field"><span>מתקין שגוי (X)</span>
+                <select value={mergeSource} onChange={e => { setMergeSource(e.target.value); setMergePreview(null); }}>
+                  <option value="">בחר מתקין</option>
+                  {installers.map(item => <option key={item.id} value={item.id}>{item.name} (#{item.id})</option>)}
+                </select>
+              </label>
+              <label className="field"><span>מתקין תקין (Y)</span>
+                <select value={mergeTarget} onChange={e => { setMergeTarget(e.target.value); setMergePreview(null); }}>
+                  <option value="">בחר מתקין</option>
+                  {installers.map(item => <option key={item.id} value={item.id}>{item.name} (#{item.id})</option>)}
+                </select>
+              </label>
+            </div>
+            <button type="button" className="secondary-btn" disabled={mergeBusy || !mergeSource || !mergeTarget || mergeSource === mergeTarget} onClick={previewMerge}>בדוק שיוכים לפני מיזוג</button>
+            {mergePreview && (
+              <div className="installer-merge-preview" role="status">
+                <strong>בדיקה לפני ביצוע</strong>
+                <p>העברה מ־{mergePreview.source.name} אל {mergePreview.target.name}</p>
+                <p>{mergePreview.rows_count} רשומות ב־{mergePreview.projects_count} פרויקטים יועברו.</p>
+                <p>הפעולה אינה ניתנת לביטול אוטומטי. ודא שנבחרו המתקינים הנכונים.</p>
+                <div className="row-actions">
+                  <button type="button" className="danger" disabled={mergeBusy} onClick={confirmMerge}>{mergeBusy ? 'מבצע מיזוג…' : 'אשר מיזוג והסר רישום שגוי'}</button>
+                  <button type="button" className="secondary-btn" disabled={mergeBusy} onClick={() => setMergePreview(null)}>ביטול</button>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
 
       {error && <div className="error-box">{error}</div>}
     </section>

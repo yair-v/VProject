@@ -415,12 +415,16 @@ function UsersTab({ user }) {
   );
 }
 
-function TablesTab() {
+function TablesTab({ user }) {
   const [customers, setCustomers] = useState([]);
   const [installers, setInstallers] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [installerName, setInstallerName] = useState('');
+  const [mergeSource, setMergeSource] = useState('');
+  const [mergeTarget, setMergeTarget] = useState('');
+  const [mergePreview, setMergePreview] = useState(null);
+  const [mergeBusy, setMergeBusy] = useState(false);
   const [statusName, setStatusName] = useState('');
   const [statusColor, setStatusColor] = useState('#64748b');
   const [error, setError] = useState('');
@@ -507,6 +511,31 @@ function TablesTab() {
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  async function previewMerge() {
+    setError('');
+    setMergePreview(null);
+    if (!mergeSource || !mergeTarget || mergeSource === mergeTarget) {
+      setError('יש לבחור שני מתקינים שונים');
+      return;
+    }
+    try {
+      setMergePreview(await api.previewInstallerMerge(Number(mergeSource), Number(mergeTarget)));
+    } catch (err) { setError(err.message); }
+  }
+
+  async function confirmMerge() {
+    if (!mergePreview || mergeBusy) return;
+    setMergeBusy(true);
+    try {
+      await api.mergeInstallers(mergePreview.source.id, mergePreview.target.id);
+      setMergePreview(null);
+      setMergeSource('');
+      setMergeTarget('');
+      await loadData();
+    } catch (err) { setError(err.message); }
+    finally { setMergeBusy(false); }
   }
 
   async function addStatus() {
@@ -771,6 +800,40 @@ function TablesTab() {
           </button>
         </div>
 
+        {user.role === 'admin' && (
+          <div className="installer-merge-panel">
+            <h4>מיזוג מתקינים כפולים</h4>
+            <p>בחר מתקין שגוי ומתקין תקין. כל השיוכים יועברו לתקין ורק לאחר מכן השגוי יוסר.</p>
+            <div className="installer-merge-grid">
+              <label className="field"><span>מתקין שגוי (X)</span>
+                <select value={mergeSource} onChange={e => { setMergeSource(e.target.value); setMergePreview(null); }}>
+                  <option value="">בחר מתקין</option>
+                  {installers.map(item => <option key={item.id} value={item.id}>{item.name} (#{item.id})</option>)}
+                </select>
+              </label>
+              <label className="field"><span>מתקין תקין (Y)</span>
+                <select value={mergeTarget} onChange={e => { setMergeTarget(e.target.value); setMergePreview(null); }}>
+                  <option value="">בחר מתקין</option>
+                  {installers.map(item => <option key={item.id} value={item.id}>{item.name} (#{item.id})</option>)}
+                </select>
+              </label>
+            </div>
+            <button type="button" className="secondary-btn" disabled={!mergeSource || !mergeTarget || mergeSource === mergeTarget} onClick={previewMerge}>בדוק שיוכים לפני מיזוג</button>
+            {mergePreview && (
+              <div className="installer-merge-preview" role="status">
+                <strong>בדיקה לפני ביצוע</strong>
+                <p>העברה מ־{mergePreview.source.name} אל {mergePreview.target.name}</p>
+                <p>{mergePreview.rows_count} רשומות ב־{mergePreview.projects_count} פרויקטים יועברו.</p>
+                <p>הפעולה אינה ניתנת לביטול אוטומטי. יש לוודא שנבחרו המתקינים הנכונים.</p>
+                <div className="row-actions">
+                  <button type="button" className="danger" disabled={mergeBusy} onClick={confirmMerge}>{mergeBusy ? 'מבצע מיזוג…' : 'אשר מיזוג והסר רישום שגוי'}</button>
+                  <button type="button" className="secondary-btn" disabled={mergeBusy} onClick={() => setMergePreview(null)}>ביטול</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="table-wrap">
           <table>
             <thead>
@@ -875,7 +938,7 @@ export default function SettingsPage({
           />
         )}
 
-        {activeTab === 'tables' && <TablesTab />}
+        {activeTab === 'tables' && <TablesTab user={user} />}
         {activeTab === 'users' && <UsersTab user={user} />}
       </main>
     </div>

@@ -32,6 +32,7 @@ export default function ProjectFieldsManager({
   const [editingField, setEditingField] = useState(null);
   const [draft, setDraft] = useState(emptyField(customFields.length));
   const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
 
@@ -136,7 +137,15 @@ export default function ProjectFieldsManager({
   }
 
   async function toggleRequired(field) {
-    await updateField(field, { is_required: !field.is_required });
+    if (updatingId !== null) return;
+    setUpdatingId(field.id);
+    try {
+      await updateField(field, { is_required: !field.is_required });
+    } catch {
+      // updateField already displays the error.
+    } finally {
+      setUpdatingId(null);
+    }
   }
 
   async function reorderFields(sourceId, targetId) {
@@ -184,7 +193,7 @@ export default function ProjectFieldsManager({
             <div className="section-chip">Project Fields</div>
             <h3>סידור שדות לפרויקט</h3>
             <p className="project-fields-note">
-              גרור כדי לשנות סדר. השדות יוצגו בטופס בדיוק לפי הסדר שתבחר.
+              בחר אילו שדות מותאמים הם חובה ואילו רשות. גרור לשינוי הסדר.
             </p>
           </div>
 
@@ -249,7 +258,7 @@ export default function ProjectFieldsManager({
                   <strong>{field.field_label}</strong>
                   <span>
                     {TYPE_OPTIONS.find((item) => item.value === field.field_type)?.label || field.field_type}
-                    {field.is_required ? ' • חובה' : ''}
+                    {' · '}{field.is_required ? 'שדה חובה' : 'שדה רשות'}
                   </span>
                 </div>
 
@@ -262,12 +271,16 @@ export default function ProjectFieldsManager({
                       ערוך
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => toggleRequired(field)}
-                    >
-                      {field.is_required ? 'בטל חובה' : 'חובה'}
-                    </button>
+                    <label className="field-required-control" title="הגדר האם חובה למלא שדה זה">
+                      <span>חובה</span>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(field.is_required)}
+                        disabled={updatingId !== null}
+                        onChange={() => toggleRequired(field)}
+                        aria-label={`שדה חובה: ${field.field_label}`}
+                      />
+                    </label>
 
                     <button
                       type="button"
@@ -359,21 +372,13 @@ export default function ProjectFieldsManager({
                   />
                 </label>
 
-                <label className="field">
-                  <span>שדה חובה?</span>
-                  <SmartSelect
-                    value={draft.is_required ? 'כן' : 'לא'}
-                    onChange={(selectedLabel) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        is_required: selectedLabel === 'כן'
-                      }))
-                    }
-                    options={['לא', 'כן']}
-                    placeholder="בחר"
-                    searchPlaceholder="חפש..."
-                    emptyText="אין אפשרויות"
-                  />
+                <label className="field field-required-edit">
+                  <span>חובת מילוי</span>
+                  <span className="field-required-edit-line">
+                    <input type="checkbox" checked={draft.is_required}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, is_required: e.target.checked }))} />
+                    <span>{draft.is_required ? 'שדה חובה' : 'שדה רשות'}</span>
+                  </span>
                 </label>
 
                 {draft.field_type === 'select' && (

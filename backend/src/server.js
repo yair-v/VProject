@@ -1047,6 +1047,47 @@ app.put('/api/installers/:id', requireRole(['admin', 'manager']), async (req, re
   res.json(result.rows[0]);
 });
 
+// Admin-only installer merge: preview and execution use stable IDs, never display names.
+app.get('/api/installers/merge-preview', requireRole(['admin']), async (req, res) => {
+  const sourceId = Number(req.query.sourceId);
+  const targetId = Number(req.query.targetId);
+  if (!Number.isSafeInteger(sourceId) || !Number.isSafeInteger(targetId) || sourceId <= 0 || targetId <= 0 || sourceId === targetId) {
+    return res.status(400).json({ error: 'יש לבחור שני מתקינים שונים' });
+  }
+  const people = await query('SELECT id, name FROM installers WHERE id = ANY($1::int[])', [[sourceId, targetId]]);
+  if (people.rowCount !== 2) return res.status(404).json({ error: 'אחד המתקינים לא נמצא' });
+  const counts = await query('SELECT COUNT(*)::int AS rows_count, COUNT(DISTINCT project_id)::int AS projects_count FROM project_rows WHERE installer_id = $1', [sourceId]);
+  res.json({ source: people.rows.find(x => x.id === sourceId), target: people.rows.find(x => x.id === targetId), ...counts.rows[0] });
+});
+
+app.post('/api/installers/merge', requireRole(['admin']), async (req, res) => {
+  const sourceId = Number(req.body?.sourceId);
+  const targetId = Number(req.body?.targetId);
+  if (!Number.isSafeInteger(sourceId) || !Number.isSafeInteger(targetId) || sourceId <= 0 || targetId <= 0 || sourceId === targetId) {
+    return res.status(400).json({ error: 'יש לבחור שני מתקינים שונים' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const people = await client.query('SELECT id, name FROM installers WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE', [[sourceId, targetId]]);
+    if (people.rowCount !== 2) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'אחד המתקינים לא נמצא' });
+    }
+    const moved = await client.query('UPDATE project_rows SET installer_id = $1, updated_at = NOW() WHERE installer_id = $2 RETURNING id', [targetId, sourceId]);
+    // The only installer foreign key in the current schema is project_rows.installer_id.
+    await client.query('DELETE FROM installers WHERE id = $1', [sourceId]);
+    await client.query('COMMIT');
+    res.json({ merged: true, movedRows: moved.rowCount, target: people.rows.find(x => x.id === targetId) });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Installer merge failed', err);
+    res.status(500).json({ error: 'המיזוג נכשל; לא בוצע שינוי חלקי' });
+  } finally {
+    client.release();
+  }
+});
+
 app.delete('/api/installers/:id', requireRole(['admin', 'manager']), async (req, res) => {
   const { id } = req.params;
   await query(`DELETE FROM installers WHERE id = $1`, [id]);

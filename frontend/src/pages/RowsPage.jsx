@@ -684,7 +684,7 @@ export default function RowsPage({
               projectId={selectedProject?.id}
               customFields={sortedCustomFields}
               onChanged={reloadProjectFields}
-              canManage={user.role === 'admin' || user.role === 'manager'}
+              canManage={user.role === 'admin'}
             />
 
             <form className="row-form" onSubmit={saveRow}>

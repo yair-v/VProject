@@ -174,6 +174,11 @@ export const api = {
       method: 'DELETE'
     }),
 
+  previewInstallerMerge: (sourceId, targetId) =>
+    request(`/api/installers/merge-preview?sourceId=${encodeURIComponent(sourceId)}&targetId=${encodeURIComponent(targetId)}`),
+  mergeInstallers: (sourceId, targetId) =>
+    request('/api/installers/merge', { method: 'POST', body: JSON.stringify({ sourceId, targetId }) }),
+
   getRows: ({ projectId, page, pageSize, search, status }) =>
     request(
       `/api/projects/${projectId}/rows?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(search || '')}&status=${encodeURIComponent(status || '')}`

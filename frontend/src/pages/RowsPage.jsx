@@ -711,7 +711,17 @@ export default function RowsPage({
             />
 
             {requiredError && <div role="alert" className="required-toggle-error">{requiredError}</div>}
-            <form className="row-form" onSubmit={saveRow}>
+            <form className="row-form" onSubmit={async (event) => {
+              event.preventDefault();
+              if (form.status === 'completed') {
+                const missing = [...baseFields.filter(f => f.is_required && f.key !== 'status' && !String(form[f.key] ?? '').trim()).map(f => f.label), ...customFields.filter(f => f.is_active !== false && f.is_required && !String(form.custom_data?.[f.field_key] ?? '').trim()).map(f => f.field_label)];
+                if (missing.length) {
+                  window.dispatchEvent(new CustomEvent('vproject:popup', { detail: { title: 'חסרים שדות חובה', message: `כדי לסמן את השורה כבוצע יש להשלים:\n${missing.map(x => `• ${x}`).join('\n')}` } }));
+                  return;
+                }
+              }
+              await saveRow(event);
+            }}>
               <LookupInput
                 label={fieldHeader('customer_name', 'לקוח')}
                 value={form.customer_name}

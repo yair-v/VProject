@@ -251,7 +251,7 @@ function buildMappedPayload(rawRow, mapping = {}, customFields = []) {
   return payload;
 }
 
-function sanitizeCustomData(rawData, customFields) {
+function sanitizeCustomData(rawData, customFields, enforceRequired = false) {
   const source = rawData && typeof rawData === 'object' ? rawData : {};
   const sanitized = {};
 
@@ -265,7 +265,7 @@ function sanitizeCustomData(rawData, customFields) {
     }
 
     if (raw === undefined || raw === null || raw === '') {
-      if (field.is_required) {
+      if (enforceRequired && field.is_required) {
         throw new Error(`השדה "${field.field_label}" הוא שדה חובה`);
       }
       sanitized[field.field_key] = '';
@@ -401,7 +401,7 @@ async function validateAndNormalizeRow(payload, customFields = [], projectId = n
     customData: payload.custom_data || payload.customData || {}
   };
 
-  if (projectId) {
+  if (projectId && data.status === 'completed') {
     const flags = await query('SELECT field_key,is_required FROM project_base_field_requirements WHERE project_id=$1', [projectId]);
     const overrides = Object.fromEntries(flags.rows.map(f => [f.field_key, f.is_required]));
     const values = {customer_name:data.customerName,branch_name:data.branchName,branch_number:data.branchNumber,
@@ -439,7 +439,7 @@ async function validateAndNormalizeRow(payload, customFields = [], projectId = n
     if (!data.completedDate) data.completedDate = todayDbDate();
   }
 
-  data.customData = sanitizeCustomData(data.customData, customFields);
+  data.customData = sanitizeCustomData(data.customData, customFields, data.status === 'completed');
   return data;
 }
 

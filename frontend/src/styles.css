@@ -2517,3 +2517,6 @@ button:focus-visible, a:focus-visible {
 .row-form .required-field-header .mini-required-toggle { flex:0 0 20px; width:20px; height:10px; }
 .row-form .lookup-label-wrap { display:block; width:100%; }
 .required-toggle-error { color:#b91c1c; padding:8px; }
+
+.vproject-error-layer { pointer-events: auto; background: rgba(10,20,35,.38); }
+.vproject-error-popup { max-height: 85vh; overflow-y: auto; }

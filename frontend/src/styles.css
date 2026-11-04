@@ -2291,3 +2291,64 @@ button:focus-visible, a:focus-visible {
 .installer-merge-dialog .field { min-width:0; }
 .installer-merge-dialog select { max-width:100%; }
 @media(max-width:620px) { .installer-merge-dialog { padding:16px; } .installer-merge-dialog .installer-merge-grid { grid-template-columns:minmax(0,1fr); } }
+
+/* VP hotfix 2026-11-04: project fields manager layout only */
+.inline-fields-manager, .inline-fields-list { min-width: 0; width: 100%; }
+.inline-fields-manager .inline-field-chip {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) max-content;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 14px 16px;
+  height: auto;
+}
+.inline-fields-manager .inline-field-chip-main { min-width: 0; text-align: start; }
+.inline-fields-manager .inline-field-chip-main strong,
+.inline-fields-manager .inline-field-chip-main span { overflow-wrap: anywhere; white-space: normal; }
+.inline-fields-manager .inline-field-chip-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  grid-column: auto;
+}
+.inline-fields-manager .inline-field-chip-actions > button,
+.inline-fields-manager .inline-field-chip-actions > .field-required-control {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 64px;
+  height: 40px;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  position: static;
+}
+.inline-fields-manager .field-required-control { gap: 8px; }
+.inline-fields-manager .field-required-control input { margin: 0; flex: 0 0 18px; }
+.inline-fields-manager .drag-handle-btn { width: 42px; height: 42px; padding: 0; }
+@media (max-width: 850px) {
+  .inline-fields-manager .inline-field-chip { grid-template-columns: 44px minmax(0, 1fr); }
+  .inline-fields-manager .inline-field-chip-actions {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 440px) {
+  .inline-fields-manager .inline-field-chip { padding: 12px; gap: 10px; }
+  .inline-fields-manager .inline-field-chip-actions > button,
+  .inline-fields-manager .inline-field-chip-actions > .field-required-control { min-width: 0; padding: 8px 10px; }
+}

@@ -42,7 +42,7 @@ export default function LookupInput({ label, value, onChange, loadOptions, onCre
 
   return (
     <label className="field lookup-shell" ref={shellRef}>
-      <span>{label}{required ? ' *' : ''}</span>
+      <span className="lookup-label-wrap">{label}{required ? ' *' : ''}</span>
       <input
         value={value}
         onChange={(e) => {

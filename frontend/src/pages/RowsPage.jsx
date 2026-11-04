@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import LookupInput from '../components/LookupInput';
+import RequiredFieldHeader from '../components/RequiredFieldHeader';
 import CustomFieldInput from '../components/CustomFieldInput';
 import ProjectFieldsManager from '../components/ProjectFieldsManager';
 import { api } from '../api';
@@ -41,6 +42,9 @@ export default function RowsPage({
     pending_rows: 0
   });
   const [customFields, setCustomFields] = useState([]);
+  const [baseFields, setBaseFields] = useState([]);
+  const [requiredBusy, setRequiredBusy] = useState(false);
+  const [requiredError, setRequiredError] = useState('');
   const [statusOptions, setStatusOptions] = useState([
     { status_key: 'pending', label: 'ממתין', color: '#f59e0b' },
     { status_key: 'completed', label: 'בוצע', color: '#22c55e' }
@@ -82,12 +86,14 @@ export default function RowsPage({
     async function loadProjectFields() {
       if (!selectedProject?.id) {
         setCustomFields([]);
+        setBaseFields([]);
         return;
       }
 
       try {
         const result = await api.getProjectFields(selectedProject.id);
         setCustomFields(result.customFields || []);
+        setBaseFields(result.baseFields || []);
       } catch {
         setCustomFields([]);
       }
@@ -492,10 +498,27 @@ export default function RowsPage({
     }));
   }
 
+  const baseRequired = (key) => Boolean(baseFields.find(f => f.key === key)?.is_required);
+  const fieldHeader = (key, label) => <RequiredFieldHeader label={label} required={baseRequired(key)} busy={requiredBusy}
+    onToggle={(value) => changeRequired('base', key, value)} />;
+
+  async function changeRequired(type, key, value) {
+    if (!selectedProject?.id || requiredBusy) return;
+    setRequiredBusy(true);
+    setRequiredError('');
+    try {
+      if (type === 'base') await api.setBaseFieldRequired(selectedProject.id, key, value);
+      else await api.setCustomFieldRequired(selectedProject.id, key, value);
+      await reloadProjectFields();
+    } catch (err) { setRequiredError(err.message || 'שמירת הגדרת החובה נכשלה'); }
+    finally { setRequiredBusy(false); }
+  }
+
   async function reloadProjectFields() {
     if (!selectedProject?.id) return;
     const result = await api.getProjectFields(selectedProject.id);
     setCustomFields(result.customFields || []);
+    setBaseFields(result.baseFields || []);
   }
 
   function renderTableCell(row, column) {
@@ -687,9 +710,10 @@ export default function RowsPage({
               canManage={user.role === 'admin'}
             />
 
+            {requiredError && <div role="alert" className="required-toggle-error">{requiredError}</div>}
             <form className="row-form" onSubmit={saveRow}>
               <LookupInput
-                label="לקוח"
+                label={fieldHeader('customer_name', 'לקוח')}
                 value={form.customer_name}
                 onChange={(value) => updateForm('customer_name', value)}
                 loadOptions={api.getCustomers}
@@ -698,7 +722,7 @@ export default function RowsPage({
               />
 
               <label className="field">
-                <span>שם סניף</span>
+                {fieldHeader('branch_name', 'שם סניף')}
                 <input
                   value={form.branch_name}
                   onChange={(e) => updateForm('branch_name', e.target.value)}
@@ -706,7 +730,7 @@ export default function RowsPage({
               </label>
 
               <label className="field">
-                <span>מספר סניף</span>
+                {fieldHeader('branch_number', 'מספר סניף')}
                 <input
                   type="text"
                   inputMode="numeric"
@@ -722,7 +746,7 @@ export default function RowsPage({
               </label>
 
               <label className="field">
-                <span>מספר עמדה</span>
+                {fieldHeader('position_number', 'מספר עמדה')}
                 <input
                   type="text"
                   inputMode="numeric"
@@ -738,7 +762,7 @@ export default function RowsPage({
               </label>
 
               <label className="field">
-                <span>מספר סידורי *</span>
+                {fieldHeader('serial_number', 'מספר סידורי')}
                 <input
                   type="text"
                   inputMode="numeric"
@@ -754,8 +778,8 @@ export default function RowsPage({
               </label>
 
               <LookupInput
-                label="שם מתקין"
-                required={form.status === 'completed'}
+                label={fieldHeader('installer_name', 'שם מתקין')}
+                required={false}
                 value={form.installer_name}
                 onChange={(value) => updateForm('installer_name', value)}
                 loadOptions={api.getInstallers}
@@ -764,7 +788,7 @@ export default function RowsPage({
               />
 
               <label className="field">
-                <span>תאריך יעד</span>
+                {fieldHeader('target_date', 'תאריך יעד')}
                 <input
                   value={form.target_date}
                   placeholder="DD/MM/YYYY"
@@ -773,7 +797,7 @@ export default function RowsPage({
               </label>
 
               <label className="field">
-                <span>תאריך ביצוע</span>
+                {fieldHeader('completed_date', 'תאריך ביצוע')}
                 <input
                   value={form.completed_date}
                   placeholder="DD/MM/YYYY"
@@ -782,7 +806,7 @@ export default function RowsPage({
               </label>
 
               <label className="field">
-                <span>סטטוס</span>
+                {fieldHeader('status', 'סטטוס')}
                 <select
                   value={form.status}
                   onChange={(e) => updateForm('status', e.target.value)}
@@ -799,6 +823,7 @@ export default function RowsPage({
                   field={field}
                   value={form.custom_data?.[field.field_key] ?? ''}
                   onChange={(value) => updateCustomField(field.field_key, value)}
+                  header={<RequiredFieldHeader label={field.field_label} required={field.is_required} busy={requiredBusy} onToggle={(v) => changeRequired('custom', field.id, v)} />}
                 />
               ))}
 

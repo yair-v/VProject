@@ -119,6 +119,17 @@ async function init() {
     );
   `);
 
+  await query('ALTER TABLE project_rows ALTER COLUMN serial_number DROP NOT NULL');
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS project_base_field_requirements (
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      field_key TEXT NOT NULL,
+      is_required BOOLEAN NOT NULL,
+      PRIMARY KEY(project_id, field_key)
+    );
+  `);
+
   await query(`
     CREATE INDEX IF NOT EXISTS idx_project_rows_project_id
     ON project_rows(project_id);

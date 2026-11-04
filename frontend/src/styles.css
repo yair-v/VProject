@@ -2510,3 +2510,10 @@ button:focus-visible, a:focus-visible {
 .mini-required-toggle input:checked + .mini-required-track::after { transform:translateX(10px); }
 .mini-required-toggle input:focus-visible + .mini-required-track { outline:2px solid #2769bd; outline-offset:3px; }
 .mini-required-toggle input:disabled + .mini-required-track { opacity:.5; }
+
+/* Compact 20x10 required switches inside the row editor labels. */
+.row-form .required-field-header { display:flex; flex-direction:row; justify-content:space-between; align-items:center; width:100%; min-width:0; gap:8px; direction:rtl; }
+.row-form .required-field-name { min-width:0; text-align:right; }
+.row-form .required-field-header .mini-required-toggle { flex:0 0 20px; width:20px; height:10px; }
+.row-form .lookup-label-wrap { display:block; width:100%; }
+.required-toggle-error { color:#b91c1c; padding:8px; }

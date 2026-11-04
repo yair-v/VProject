@@ -387,7 +387,7 @@ async function ensureNamedEntity(table, name) {
   return result.rows[0];
 }
 
-async function validateAndNormalizeRow(payload, customFields = []) {
+async function validateAndNormalizeRow(payload, customFields = [], projectId = null) {
   const data = {
     customerName: payload.customer_name || payload.customerName || '',
     branchName: payload.branch_name || payload.branchName || '',
@@ -401,9 +401,20 @@ async function validateAndNormalizeRow(payload, customFields = []) {
     customData: payload.custom_data || payload.customData || {}
   };
 
+  if (projectId) {
+    const flags = await query('SELECT field_key,is_required FROM project_base_field_requirements WHERE project_id=$1', [projectId]);
+    const overrides = Object.fromEntries(flags.rows.map(f => [f.field_key, f.is_required]));
+    const values = {customer_name:data.customerName,branch_name:data.branchName,branch_number:data.branchNumber,
+      position_number:data.positionNumber,serial_number:data.serialNumber,installer_name:data.installerName,
+      target_date:data.targetDate,completed_date:data.completedDate,status:data.status};
+    for (const field of BASE_FIELDS) {
+      if ((overrides[field.key] ?? field.is_required) && !String(values[field.key] ?? '').trim()) {
+        throw new Error(`השדה "${field.label}" הוא שדה חובה`);
+      }
+    }
+  }
   const serial = String(data.serialNumber).trim();
-  if (!serial) throw new Error('מספר סידורי הוא שדה חובה');
-  if (!/^\d{8}$/.test(serial)) throw new Error('מספר סידורי חייב להיות 8 ספרות בדיוק');
+  if (serial && !/^\d{8}$/.test(serial)) throw new Error('מספר סידורי חייב להיות 8 ספרות בדיוק');
   data.serialNumber = serial;
 
   const branchNumber = String(data.branchNumber || '').trim();
@@ -795,9 +806,27 @@ app.post('/api/projects/restore-archive', requireRole(['admin']), express.json({
   } finally { client.release(); }
 });
 
-app.get('/api/projects/:projectId/fields', requireRole(['admin', 'manager']), async (req, res) => {
+app.get('/api/projects/:projectId/fields', requireRole(['admin', 'manager', 'viewer']), async (req, res) => {
   const customFields = await getProjectCustomFields(req.params.projectId);
-  res.json({ baseFields: BASE_FIELDS, customFields });
+  const flags = await query('SELECT field_key, is_required FROM project_base_field_requirements WHERE project_id=$1', [req.params.projectId]);
+  const overrides = Object.fromEntries(flags.rows.map(f => [f.field_key, f.is_required]));
+  res.json({ baseFields: BASE_FIELDS.map(f => ({...f, is_required: overrides[f.key] ?? f.is_required})), customFields });
+});
+
+app.put('/api/projects/:projectId/fields/base/:fieldKey/required', requireRole(['admin', 'manager', 'viewer']), async (req, res) => {
+  const {projectId, fieldKey} = req.params;
+  if (!BASE_FIELDS.some(f => f.key === fieldKey)) return res.status(404).json({error:'שדה לא קיים'});
+  if (typeof req.body?.is_required !== 'boolean') return res.status(400).json({error:'ערך לא תקין'});
+  await query(`INSERT INTO project_base_field_requirements(project_id,field_key,is_required) VALUES($1,$2,$3)
+    ON CONFLICT(project_id,field_key) DO UPDATE SET is_required=EXCLUDED.is_required`, [projectId,fieldKey,req.body.is_required]);
+  res.json({field_key:fieldKey,is_required:req.body.is_required});
+});
+
+app.put('/api/projects/:projectId/fields/:fieldId/required', requireRole(['admin', 'manager', 'viewer']), async (req, res) => {
+  if (typeof req.body?.is_required !== 'boolean') return res.status(400).json({error:'ערך לא תקין'});
+  const result = await query('UPDATE project_fields SET is_required=$1,updated_at=NOW() WHERE project_id=$2 AND id=$3 RETURNING id,is_required', [req.body.is_required,req.params.projectId,req.params.fieldId]);
+  if (!result.rows.length) return res.status(404).json({error:'שדה לא קיים'});
+  res.json(result.rows[0]);
 });
 
 app.post('/api/projects/:projectId/fields', requireRole(['admin', 'manager']), async (req, res) => {
@@ -1168,7 +1197,7 @@ app.post('/api/projects/:projectId/rows', requireRole(['admin', 'manager']), asy
 
   try {
     const customFields = await getProjectCustomFields(projectId);
-    const data = await validateAndNormalizeRow(req.body, customFields);
+    const data = await validateAndNormalizeRow(req.body, customFields, projectId);
     const customer = await ensureNamedEntity('customers', data.customerName);
     const installer = await ensureNamedEntity('installers', data.installerName);
 
@@ -1184,7 +1213,7 @@ app.post('/api/projects/:projectId/rows', requireRole(['admin', 'manager']), asy
         data.branchName,
         data.branchNumber,
         data.positionNumber,
-        data.serialNumber.trim(),
+        data.serialNumber.trim() || null,
         installer?.id || null,
         data.targetDate,
         data.completedDate,
@@ -1216,7 +1245,7 @@ app.put('/api/projects/:projectId/rows/:rowId', requireRole(['admin', 'manager']
 
   try {
     const customFields = await getProjectCustomFields(projectId);
-    const data = await validateAndNormalizeRow(req.body, customFields);
+    const data = await validateAndNormalizeRow(req.body, customFields, projectId);
     const customer = await ensureNamedEntity('customers', data.customerName);
     const installer = await ensureNamedEntity('installers', data.installerName);
 
@@ -1239,7 +1268,7 @@ app.put('/api/projects/:projectId/rows/:rowId', requireRole(['admin', 'manager']
         data.branchName,
         data.branchNumber,
         data.positionNumber,
-        data.serialNumber.trim(),
+        data.serialNumber.trim() || null,
         installer?.id || null,
         data.targetDate,
         data.completedDate,
@@ -1348,7 +1377,7 @@ app.post('/api/projects/:projectId/import-mapped', requireRole(['admin', 'manage
           data.branchName,
           data.branchNumber,
           data.positionNumber,
-          data.serialNumber.trim(),
+          data.serialNumber.trim() || null,
           installer?.id || null,
           data.targetDate,
           data.completedDate,

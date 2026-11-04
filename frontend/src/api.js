@@ -109,6 +109,8 @@ export const api = {
   restoreProjectArchive: (data) => request('/api/projects/restore-archive', { method: 'POST', body: JSON.stringify(data) }),
 
   getProjectFields: (projectId) => request(`/api/projects/${projectId}/fields`),
+  setBaseFieldRequired: (projectId, key, is_required) => request(`/api/projects/${projectId}/fields/base/${key}/required`, { method: 'PUT', body: JSON.stringify({is_required}) }),
+  setCustomFieldRequired: (projectId, id, is_required) => request(`/api/projects/${projectId}/fields/${id}/required`, { method: 'PUT', body: JSON.stringify({is_required}) }),
   createProjectField: (projectId, payload) =>
     request(`/api/projects/${projectId}/fields`, {
       method: 'POST',

@@ -255,7 +255,17 @@ export default function ProjectFieldsManager({
                 </button>
 
                 <div className="inline-field-chip-main">
-                  <strong>{field.field_label}</strong>
+                  <div className="mini-field-title-line">
+                    <strong>{field.field_label}</strong>
+                    {canManage && (
+                      <label className="mini-required-toggle" title="הגדר האם חובה למלא שדה זה">
+                        <input type="checkbox" checked={Boolean(field.is_required)}
+                          disabled={updatingId !== null} onChange={() => toggleRequired(field)}
+                          aria-label={`שדה חובה: ${field.field_label}`} />
+                        <span className="mini-required-track" aria-hidden="true" />
+                      </label>
+                    )}
+                  </div>
                   <span>
                     {TYPE_OPTIONS.find((item) => item.value === field.field_type)?.label || field.field_type}
                     {' · '}{field.is_required ? 'שדה חובה' : 'שדה רשות'}
@@ -271,16 +281,7 @@ export default function ProjectFieldsManager({
                       ערוך
                     </button>
 
-                    <label className="field-required-control" title="הגדר האם חובה למלא שדה זה">
-                      <span>חובה</span>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(field.is_required)}
-                        disabled={updatingId !== null}
-                        onChange={() => toggleRequired(field)}
-                        aria-label={`שדה חובה: ${field.field_label}`}
-                      />
-                    </label>
+
 
                     <button
                       type="button"

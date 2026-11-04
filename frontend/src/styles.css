@@ -2497,3 +2497,16 @@ button:focus-visible, a:focus-visible {
   .inline-fields-manager .inline-field-chip { padding:12px !important; }
   .inline-fields-manager .inline-field-chip-actions { gap:6px !important; }
 }
+
+/* Compact required toggle: field name right, switch left */
+.inline-field-chip-main { min-width: 0; width: 100%; }
+.mini-field-title-line { display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:12px; width:100%; min-width:0; direction:rtl; }
+.mini-field-title-line strong { min-width:0; overflow-wrap:normal; word-break:normal; }
+.mini-required-toggle { position:relative; display:inline-flex; flex:0 0 20px; width:20px; height:10px; padding:0; margin:0; cursor:pointer; align-items:center; }
+.mini-required-toggle input { position:absolute; inset:0; opacity:0; width:20px; height:10px; margin:0; cursor:pointer; z-index:2; }
+.mini-required-track { display:block; width:20px; height:10px; border-radius:999px; background:#b7c1ce; position:relative; transition:background .16s ease; }
+.mini-required-track::after { content:""; position:absolute; top:1px; left:1px; width:8px; height:8px; border-radius:50%; background:#fff; box-shadow:0 0 1px rgba(0,0,0,.25); transition:transform .16s ease; }
+.mini-required-toggle input:checked + .mini-required-track { background:#259b71; }
+.mini-required-toggle input:checked + .mini-required-track::after { transform:translateX(10px); }
+.mini-required-toggle input:focus-visible + .mini-required-track { outline:2px solid #2769bd; outline-offset:3px; }
+.mini-required-toggle input:disabled + .mini-required-track { opacity:.5; }
